@@ -8,7 +8,8 @@
         <parent link="world"/>
         <child link="base_link"/>        
     </joint>
-
+    
+    <link name="base_link">
         <visual>
             <origin xyz="0 0 0.05" rpy="0 0 0"/>
             <geometry>

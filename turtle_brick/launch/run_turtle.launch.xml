@@ -1,0 +1,15 @@
+<launch>
+
+    <!-- WIP still need to figure out how to use the rsp w/ yaml parameters -->
+    <!-- launch the robot_state_publisher, with the turtle robot xacro loaded -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" exec="robot_state_publisher">
+        <param name="robot_description" value="$(command '$(exec-in-pkg xacro xacro) $(find-pkg-share turtle_brick)/turtle.urdf.xacro')"/>
+        <!-- <param from="$(find-pkg-share turtle_brick)/config/turtle.yaml" /> -->
+    </node>
+
+    <!-- launch rviz -->
+    <node name="rviz2" pkg="rviz2" exec="rviz2"/>
+
+    <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot"/>
+
+</launch>

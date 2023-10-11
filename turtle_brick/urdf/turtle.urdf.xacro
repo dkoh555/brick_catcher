@@ -6,20 +6,21 @@
 
     <!-- odom is the fixed starting position of the turtle robot -->
     <joint name="odom_joint" type="fixed">
-        <origin xyz="3 3 0" rpy="0 0 0"/>
+        <origin xyz="1 1 0" rpy="0 0 0"/>
         <parent link="world"/>
         <child link="odom"/>        
     </joint>
 
     <link name="odom"></link>
 
+    <!-- movement and rotation of the turtle 'unicycle' -->
     <!-- the turtle robot can move anywhere along the xy plane -->
     <!-- floating and planar joint types do not work so implement a cartesian workaround -->
     <joint name="x_joint" type="prismatic">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <parent link="odom"/>
         <child link="x_link"/> 
-        <limit lower="-5" upper="5" velocity="100" effort="100"/>
+        <limit lower="-5" upper="5" velocity="100" effort="1000.0"/>
         <axis xyz="1 0 0"/>
     </joint>
 
@@ -29,7 +30,7 @@
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <parent link="x_link"/>
         <child link="y_link"/>
-        <limit lower="-5" upper="5" velocity="100" effort="100"/>
+        <limit lower="-5" upper="5" velocity="100" effort="1000.0"/>
         <axis xyz="0 1 0"/>
     </joint>
 
@@ -37,14 +38,14 @@
 
     <!-- the turtle robot base_link -->
     <joint name="base_joint" type="fixed">
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <parent link="y_link"/>
+        <origin xyz="0 0 1" rpy="0 0 0"/>
+        <parent link="stem_link"/>
         <child link="base_link"/> 
     </joint>
 
     <link name="base_link">
         <visual>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <origin xyz="0 0 0.25" rpy="0 0 0"/>
             <geometry>
                 <box size="0.5 0.5 0.5" />
             </geometry>
@@ -59,30 +60,103 @@
             </geometry>
         </collision>
     </link>
-<!-- 
-    <joint name="cylindrical_joint" type="fixed">
+
+    <!-- the turtle robot can turn around on its wheel -->
+    <joint name="rotate_joint" type="continuous">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <parent link="y_link"/>
-        <child link="base_link"/> 
+        <child link="rotate_link"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="1000.0" velocity="0.5"/>
     </joint>
 
-    <link name="cylindrical_link">
+    <link name="rotate_link"></link>
+    
+    <!-- bottom half of the turtle 'unicycle' -->
+    <!-- WIP need to change wheel origin for parameters -->
+    <joint name="wheel_joint" type="continuous">
+        <origin xyz="0 0 0.25" rpy="1.57079632679 0 0"/>
+        <parent link="rotate_link"/>
+        <child link="wheel_link"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="1000.0" velocity="0.5"/>
+    </joint>
+
+    <!-- WIP need to change wheel radius for parameters -->
+    <link name="wheel_link">
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.5 0.5 0.5" />
+                <cylinder length="0.05" radius="0.25"/>
             </geometry>
-            <material name="green">
-                <color rgba="0.2 1 0.2 1"/>
+            <material name="red">
+                <color rgba="1 0.2 0.2 1"/>
+            </material>
+        </visual>
+    </link>
+
+    <joint name="stem_joint" type="fixed">
+        <origin xyz="0 0 0.25" rpy="1.57079632679 0 0"/>
+        <parent link="wheel_link"/>
+        <child link="stem_link"/> 
+    </joint>
+
+    <link name="stem_link">
+        <visual>
+            <origin xyz="0 0 0.5" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="1" radius="0.05"/>
+            </geometry>
+            <material name="red">
+                <color rgba="1 0.2 0.2 1"/>
+            </material>
+        </visual>
+    </link>
+
+    <!-- top half of the turtle 'unicycle' -->
+    <joint name="cylindrical_joint" type="fixed">
+        <origin xyz="0 0 0.25" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="cylindrical_link"/> 
+    </joint>
+
+    <!-- WIP need to change height for parameters -->
+    <link name="cylindrical_link">
+        <visual>
+            <origin xyz="0 0 0.5" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="1" radius="0.05"/>
+            </geometry>
+            <material name="red">
+                <color rgba="1 0.2 0.2 1"/>
+            </material>
+        </visual>
+    </link>
+    
+    <joint name="platform_joint" type="revolute">
+        <origin xyz="0 0 1" rpy="0 0 0"/>
+        <parent link="cylindrical_link"/>
+        <child link="platform_link"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="1000.0" lower="-0.5" upper="0.5" velocity="0.5"/>
+    </joint>
+
+    <link name="platform_link">
+        <visual>
+            <origin xyz="0 0 -0.005" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.01" radius="0.5"/>
+            </geometry>
+            <material name="blue">
+                <color rgba="0.2 0.2 1 1"/>
             </material>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <origin xyz="0 0 -0.005" rpy="0 0 0"/>
             <geometry>
-                <box size="0.5 0.5 0.5" />
+                <cylinder length="0.01" radius="0.5"/>
             </geometry>
         </collision>
-    </link> -->
-
+    </link>
 
 </robot>

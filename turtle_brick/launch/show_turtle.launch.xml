@@ -1,0 +1,7 @@
+<launch>
+
+    <node pkg="robot_state_publisher" exec="robot_state_publisher">
+        <param name="robot_description" from="$(command $(exec-in-pkg xacro xacro) $(find-pkg-share pkg)/my.urdf.xacro" />
+    </node>
+
+</launch>

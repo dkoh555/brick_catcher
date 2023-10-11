@@ -26,7 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'test_node = turtle_brick.test_node:main',
-            'in_out = turtle_brick.in_out:in_out_entry'
+            'turtle_robot = turtle_brick.turtle_robot:turtle_robot_entry'
         ],
     },
 )

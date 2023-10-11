@@ -1,17 +1,3 @@
-"""
-Create one static frame and two moving frames.
-
-The tf tree produced from this node will look like
-
-      world
-       |
-      base
-      /  \
-    left right
-
-The left and right nodes will move in and out and rotate about the base z axis
-
-"""
 import rclpy
 from rclpy.node import Node
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
@@ -21,7 +7,7 @@ from math import pi
 from .quaternion import angle_axis_to_quaternion
 
 
-class InOut(Node):
+class TurtleRobot(Node):
     """
     Moves some frames around.
 
@@ -32,7 +18,7 @@ class InOut(Node):
     """
 
     def __init__(self):
-        super().__init__('in_out')
+        super().__init__('turtle_robot')
         self.dx = 10  # used to control frame movement
         # create the broadcaster
         self.broadcaster = TransformBroadcaster(self)
@@ -83,13 +69,13 @@ class InOut(Node):
         self.broadcaster.sendTransform(base_right)
 
         # update the movement
-        self.dx -= 1
+        self.dx -= 0.5
         if self.dx == 0:
             self.dx = 10
 
 
-def in_out_entry(args=None):
+def turtle_robot_entry(args=None):
     rclpy.init(args=args)
-    node = InOut()
+    node = TurtleRobot()
     rclpy.spin(node)
     rclpy.shutdown()

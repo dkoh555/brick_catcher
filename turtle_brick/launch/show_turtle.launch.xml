@@ -1,18 +1,34 @@
 <launch>
 
+    <!-- controls the behaviour of the joint_state_publisher (gui | jsp | none) -->
+    <arg name="use_jsp" default="jsp"/>
+
+    <!-- WIP still need to figure out how to use the rsp w/ yaml parameters -->
     <!-- launch the robot_state_publisher, with the turtle robot xacro loaded -->
     <node name="robot_state_publisher" pkg="robot_state_publisher" exec="robot_state_publisher">
         <param name="robot_description" value="$(command '$(exec-in-pkg xacro xacro) $(find-pkg-share turtle_brick)/turtle.urdf.xacro')"/>
         <!-- <param from="$(find-pkg-share turtle_brick)/config/turtle.yaml" /> -->
     </node>
 
-    <!-- launch the joint_state_publisher w/ the GUI for testing the URDF -->
-    <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" exec="joint_state_publisher_gui" />
-    
-    <!-- launch the joint_state_publisher w/out the GUI -->
-    <!-- <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" exec="joint_state_publisher_gui" />
-        <param name="use_gui" value="true"/>
-    </node> -->
+    <group unless="$(eval '\'$(var use_jsp)\' == \'none\'')">
+        <!-- launch the joint_state_publisher w/ the GUI for testing the URDF -->
+        <group if="$(eval '\'$(var use_jsp)\' == \'gui\'')">
+            <node 
+                name="joint_state_publisher_gui" 
+                pkg="joint_state_publisher_gui"
+                exec="joint_state_publisher_gui" >
+            </node>
+        </group>
+        
+        <!-- launch the joint_state_publisher w/out the GUI -->
+        <group if="$(eval '\'$(var use_jsp)\' == \'jsp\'')">
+            <node 
+                name="joint_state_publisher" 
+                pkg="joint_state_publisher"
+                exec="joint_state_publisher" >
+            </node>
+        </group>
+    </group>
 
     <!-- launch rviz -->
     <node name="rviz2" pkg="rviz2" exec="rviz2"/>

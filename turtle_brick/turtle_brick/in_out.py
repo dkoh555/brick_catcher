@@ -33,23 +33,6 @@ class InOut(Node):
 
     def __init__(self):
         super().__init__('in_out')
-        # Static broadcasters publish on /tf_static. We will only need to publish this once
-        # self.static_broadcaster = StaticTransformBroadcaster(self)
-
-        # # Now create the transform, noted that it must have a parent frame and a timestamp
-        # # The header contains the timing information and frame id
-        # world_base_tf = TransformStamped()
-        # world_base_tf.header.stamp = self.get_clock().now().to_msg()
-        # world_base_tf.header.frame_id = "world"
-        # world_base_tf.child_frame_id = "base"
-
-        # # The base frame will be raised in the z direction by 1 meter
-        # # and be aligned with world We are relying on the default values
-        # # of the transform message (which defaults to no rotation)
-        # world_base_tf.transform.translation.z = 1.0
-        # self.static_broadcaster.sendTransform(world_base_tf)
-        # self.get_logger().info("Static Transform: world->base")
-
         self.dx = 10  # used to control frame movement
         # create the broadcaster
         self.broadcaster = TransformBroadcaster(self)
@@ -62,7 +45,7 @@ class InOut(Node):
         world_base_tf = TransformStamped()
         world_base_tf.header.stamp = self.get_clock().now().to_msg()
         world_base_tf.header.frame_id = "world"
-        world_base_tf.child_frame_id = "base"
+        world_base_tf.child_frame_id = "base_link"
 
         # get a quaternion corresponding to a rotation by theta about an axis
         degrees = 36 * self.dx
@@ -71,7 +54,7 @@ class InOut(Node):
         # The base frame will be raised in the z direction by 1 meter
         # and be aligned with world We are relying on the default values
         # of the transform message (which defaults to no rotation)
-        world_base_tf.transform.translation.z = 1.0
+        world_base_tf.transform.translation.z = 0.4
 
         radians = degrees * pi / 180.0
         world_base_tf.transform.rotation = angle_axis_to_quaternion(radians, [0, 0, 1.0])
@@ -79,14 +62,14 @@ class InOut(Node):
         self.broadcaster.sendTransform(world_base_tf)
 
         base_left = TransformStamped()
-        base_left.header.frame_id = "base"
+        base_left.header.frame_id = "base_link"
         base_left.child_frame_id = "left"
         base_left.transform.translation.x = -float(self.dx)
         
         base_left.transform.rotation = angle_axis_to_quaternion(radians, [0, 0, 1.0])
 
         base_right = TransformStamped()
-        base_right.header.frame_id = "base"
+        base_right.header.frame_id = "base_link"
         base_right.child_frame_id = "right"
         base_right.transform.translation.x = float(self.dx)
         base_right.transform.rotation = angle_axis_to_quaternion(radians, [0, 0, -1.0])

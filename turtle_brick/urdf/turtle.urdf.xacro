@@ -1,141 +1,55 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="turtle">
 
-    <!-- WIP NEED TO ENABLE PARAMETERS FOR THIS URDF -->
-    <link name="world"></link>
-
-    <!-- odom is the fixed starting position of the turtle robot -->
-    <joint name="odom_joint" type="fixed">
-        <origin xyz="1 1 0" rpy="0 0 0"/>
-        <parent link="world"/>
-        <child link="odom"/>        
-    </joint>
-
-    <link name="odom"></link>
-
-    <!-- movement and rotation of the turtle 'unicycle' -->
-    <!-- the turtle robot can move anywhere along the xy plane -->
-    <!-- floating and planar joint types do not work so implement a cartesian workaround -->
-    <joint name="x_joint" type="prismatic">
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <parent link="odom"/>
-        <child link="x_link"/> 
-        <limit lower="-5" upper="5" velocity="100" effort="1000.0"/>
-        <axis xyz="1 0 0"/>
-    </joint>
-
-    <link name="x_link"></link>
-
-    <joint name="y_joint" type="prismatic">
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <parent link="x_link"/>
-        <child link="y_link"/>
-        <limit lower="-5" upper="5" velocity="100" effort="1000.0"/>
-        <axis xyz="0 1 0"/>
-    </joint>
-
-    <link name="y_link"></link>
+    <!-- platform_height is the same as total height of the turtle -->
+    <xacro:property name="platform_height" value="3"/>
+    <xacro:property name="wheel_radius" value="0.5"/>
+    <!-- constant dimensions -->
+    <xacro:property name="base_length" value="0.125"/>
+    <xacro:property name="cylinder_radius" value="${base_length/2}"/>
+    <xacro:property name="stem_radius" value="${base_length/2}"/>
+    <xacro:property name="platform_radius" value="0.5"/>
+    <xacro:property name="platform_thickness" value="0.05"/>
+    <xacro:property name="wheel_thickness" value="0.1"/>
+    <!-- dimensions adaptive to parameters -->
+    <xacro:property name="stem_height" value="${wheel_radius}"/>
+    <xacro:property name="cylinder_height" value="${platform_height - (wheel_radius + stem_height + base_length + platform_thickness)}"/>
 
     <!-- the turtle robot base_link -->
-    <joint name="base_joint" type="fixed">
-        <origin xyz="0 0 1" rpy="0 0 0"/>
-        <parent link="stem_link"/>
-        <child link="base_link"/> 
-    </joint>
-
     <link name="base_link">
         <visual>
-            <origin xyz="0 0 0.25" rpy="0 0 0"/>
+            <origin xyz="0 0 ${base_length/2}" rpy="0 0 0"/>
             <geometry>
-                <box size="0.5 0.5 0.5" />
+                <box size="${base_length} ${base_length} ${base_length}" />
             </geometry>
             <material name="green">
                 <color rgba="0.2 1 0.2 1"/>
             </material>
         </visual>
-        <collision>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
-            <geometry>
-                <box size="0.5 0.5 0.5" />
-            </geometry>
-        </collision>
-    </link>
-
-    <!-- the turtle robot can turn around on its wheel -->
-    <joint name="rotate_joint" type="continuous">
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <parent link="y_link"/>
-        <child link="rotate_link"/>
-        <axis xyz="0 0 1"/>
-        <limit effort="1000.0" velocity="0.5"/>
-    </joint>
-
-    <link name="rotate_link"></link>
-    
-    <!-- bottom half of the turtle 'unicycle' -->
-    <!-- WIP need to change wheel origin for parameters -->
-    <joint name="wheel_joint" type="continuous">
-        <origin xyz="0 0 0.25" rpy="1.57079632679 0 0"/>
-        <parent link="rotate_link"/>
-        <child link="wheel_link"/>
-        <axis xyz="0 1 0"/>
-        <limit effort="1000.0" velocity="0.5"/>
-    </joint>
-
-    <!-- WIP need to change wheel radius for parameters -->
-    <link name="wheel_link">
-        <visual>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
-            <geometry>
-                <cylinder length="0.05" radius="0.25"/>
-            </geometry>
-            <material name="red">
-                <color rgba="1 0.2 0.2 1"/>
-            </material>
-        </visual>
-    </link>
-
-    <joint name="stem_joint" type="fixed">
-        <origin xyz="0 0 0.25" rpy="1.57079632679 0 0"/>
-        <parent link="wheel_link"/>
-        <child link="stem_link"/> 
-    </joint>
-
-    <link name="stem_link">
-        <visual>
-            <origin xyz="0 0 0.5" rpy="0 0 0"/>
-            <geometry>
-                <cylinder length="1" radius="0.05"/>
-            </geometry>
-            <material name="red">
-                <color rgba="1 0.2 0.2 1"/>
-            </material>
-        </visual>
     </link>
 
     <!-- top half of the turtle 'unicycle' -->
-    <joint name="cylindrical_joint" type="fixed">
-        <origin xyz="0 0 0.25" rpy="0 0 0"/>
+    <joint name="cylinder_joint" type="fixed">
+        <origin xyz="0 0 ${base_length}" rpy="0 0 0"/>
         <parent link="base_link"/>
-        <child link="cylindrical_link"/> 
+        <child link="cylinder_link"/>
     </joint>
 
-    <!-- WIP need to change height for parameters -->
-    <link name="cylindrical_link">
+    <link name="cylinder_link">
         <visual>
-            <origin xyz="0 0 0.5" rpy="0 0 0"/>
+            <origin xyz="0 0 ${cylinder_height/2}" rpy="0 0 0"/>
             <geometry>
-                <cylinder length="1" radius="0.05"/>
+                <cylinder length="${cylinder_height}" radius="${cylinder_radius}"/>
             </geometry>
             <material name="red">
                 <color rgba="1 0.2 0.2 1"/>
             </material>
         </visual>
     </link>
-    
+
     <joint name="platform_joint" type="revolute">
-        <origin xyz="0 0 1" rpy="0 0 0"/>
-        <parent link="cylindrical_link"/>
+        <origin xyz="0 0 ${cylinder_height}" rpy="0 0 0"/>
+        <parent link="cylinder_link"/>
         <child link="platform_link"/>
         <axis xyz="0 1 0"/>
         <limit effort="1000.0" lower="-0.5" upper="0.5" velocity="0.5"/>
@@ -143,20 +57,60 @@
 
     <link name="platform_link">
         <visual>
-            <origin xyz="0 0 -0.005" rpy="0 0 0"/>
+            <origin xyz="0 0 ${platform_thickness/2}" rpy="0 0 0"/>
             <geometry>
-                <cylinder length="0.01" radius="0.5"/>
+                <cylinder length="${platform_thickness}" radius="${platform_radius}"/>
             </geometry>
             <material name="blue">
                 <color rgba="0.2 0.2 1 1"/>
             </material>
         </visual>
         <collision>
-            <origin xyz="0 0 -0.005" rpy="0 0 0"/>
+            <origin xyz="0 0 ${platform_thickness/2}" rpy="0 0 0"/>
             <geometry>
-                <cylinder length="0.01" radius="0.5"/>
+                <cylinder length="${platform_thickness}" radius="${platform_radius}"/>
             </geometry>
         </collision>
+    </link>
+
+    <!-- bottom half of the turtle 'unicycle' -->
+    <joint name="stem_joint" type="continuous">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="stem_link"/> 
+        <axis xyz="0 0 1"/>
+    </joint>
+
+    <link name="stem_link">
+        <visual>
+            <origin xyz="0 0 -${stem_height/2}" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="${stem_height}" radius="${stem_radius}"/>
+            </geometry>
+            <material name="red">
+                <color rgba="1 0.2 0.2 1"/>
+            </material>
+        </visual>
+    </link>
+
+    <joint name="wheel_joint" type="continuous">
+        <origin xyz="0 0 -${wheel_radius}" rpy="1.57079632679 0 0"/>
+        <parent link="stem_link"/>
+        <child link="wheel_link"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="1000.0" velocity="0.5"/>
+    </joint>
+
+    <link name="wheel_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="${wheel_thickness}" radius="${wheel_radius}"/>
+            </geometry>
+            <material name="red">
+                <color rgba="1 0.2 0.2 1"/>
+            </material>
+        </visual>
     </link>
 
 </robot>

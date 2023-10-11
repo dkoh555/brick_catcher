@@ -1,18 +1,20 @@
 <launch>
 
     <!-- launch the robot_state_publisher, with the turtle robot xacro loaded -->
-    <node pkg="robot_state_publisher" exec="robot_state_publisher">
+    <node name="robot_state_publisher" pkg="robot_state_publisher" exec="robot_state_publisher">
         <param name="robot_description" value="$(command '$(exec-in-pkg xacro xacro) $(find-pkg-share turtle_brick)/turtle.urdf.xacro')"/>
+        <!-- <param from="$(find-pkg-share turtle_brick)/config/turtle.yaml" /> -->
     </node>
 
     <!-- launch the joint_state_publisher w/ the GUI for testing the URDF -->
     <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" exec="joint_state_publisher_gui" />
-        <!-- <param name="use_gui" value="true"/> -->
-    <!-- </node> -->
-
+    
     <!-- launch the joint_state_publisher w/out the GUI -->
     <!-- <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" exec="joint_state_publisher_gui" />
         <param name="use_gui" value="true"/>
     </node> -->
+
+    <!-- launch rviz -->
+    <node name="rviz2" pkg="rviz2" exec="rviz2"/>
 
 </launch>

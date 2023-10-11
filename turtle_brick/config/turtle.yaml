@@ -1,0 +1,4 @@
+robot_state_publisher:
+  ros__parameters:
+    platform_height: 2
+    wheel_radius: 0.25

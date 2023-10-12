@@ -5,7 +5,10 @@
     <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot"/>
 
     <!-- run the turtlesim node -->
-    <node name="turtlesim" pkg="turtlesim" exec="turtlesim_node"/>
+    <node name="turtlesim" pkg="turtlesim" exec="turtlesim_node">
+        <!-- to make the turtlesim omnidirectional -->
+        <param name="holonomic" value="true" />
+    </node>
 
     <!-- WIP once turtle_robot has jsp need to set it to none here -->
     <include file="$(find-pkg-share turtle_brick)/launch/show_turtle.launch.xml" >

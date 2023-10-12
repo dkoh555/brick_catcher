@@ -3,7 +3,7 @@ from rclpy.node import Node
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 from rcl_interfaces.msg import ParameterDescriptor
 from tf2_ros import TransformBroadcaster
-from math import pi
+import math
 from .quaternion import angle_axis_to_quaternion
 
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -12,8 +12,18 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Header
 from nav_msgs.msg import Odometry
 from turtle_brick_interfaces.msg import Tilt
-from geometry_msgs.msg import TransformStamped, PoseStamped
+from geometry_msgs.msg import TransformStamped, PoseStamped, Twist
 from turtlesim.msg import Pose
+
+from enum import Enum
+
+class state(Enum):
+    """ Current state of the system (turtle_robot node).
+        Determines what movement commands are published to the turtle robot,
+        whether it is MOVING or STOPPED
+    """
+    MOVING = 0
+    STOPPED = 1
 
 class Position:
     """ Class for storing the position of the turtle in turtlesim,
@@ -55,6 +65,9 @@ class TurtleRobot(Node):
         self.declare_parameter("frequency", 100.0,
                                ParameterDescriptor(description="The frequency in which the msg is published"))
         self.frequency = self.get_parameter("frequency").get_parameter_value().double_value
+        self.declare_parameter("tolerance", 0.1,
+                               ParameterDescriptor(description="The proximity in which the turtle needs to be to a waypoint to classify as arrived"))
+        self.tolerance = self.get_parameter("tolerance").get_parameter_value().double_value
 
         ###
         ### PUBLISHERS
@@ -63,6 +76,8 @@ class TurtleRobot(Node):
         self.pub_jointstate = self.create_publisher(JointState, 'joint_states', 10)
         # Create publisher for publishing odometry messages
         self.pub_odom = self.create_publisher(Odometry, 'odom', 10)
+        # Create publisher to move the turtle
+        self.pub_cmdvel = self.create_publisher(Twist, 'turtle1/cmd_vel', 10)
 
         ###
         ### SUBSCRIBERS
@@ -94,19 +109,32 @@ class TurtleRobot(Node):
     def init_var(self):
         """ Initialize all of the turtle_robot node's variables
         """
+        # State of the node
+        self.state = state.STOPPED
         # Position and TF
         self.init_odom = False # whether odom Position has been initialized
         self.odom = Position() # starting position/odom/spawn location
         self.old_pos = Position()
         self.new_pos = Position()
         self.transform = Position()
+        # Goal/Target Position
+        self.target_pos = Position()
 
     def timer_callback(self):
-        # Initialize the current time for all the tfs
+        # Initialize the current time
         time = self.get_clock().now().to_msg()
+
+        # Declaring all the import variables/transforms/joint states
+        move_msg = Twist()
+        world_odom_tf = TransformStamped()
+        odom_base_tf = TransformStamped()
+        joint_state = JointState()
+
+        # If in MOVING state, move the turtle robot to its goal
+        if self.state == state.MOVING:
+            move_msg = self.nav_to_goal(move_msg, self.target_pos)
         
         # Create the transform for world -> odom and odom -> base_link
-        world_odom_tf = TransformStamped()
         world_odom_tf.header.stamp = time
         world_odom_tf.header.frame_id = "world"
         world_odom_tf.child_frame_id = "odom"
@@ -114,7 +142,6 @@ class TurtleRobot(Node):
         world_odom_tf = self.update_tf(world_odom_tf, temp_tf)
         self.broadcaster.sendTransform(world_odom_tf)
 
-        odom_base_tf = TransformStamped()
         odom_base_tf.header.stamp = time
         odom_base_tf.header.frame_id = "odom"
         odom_base_tf.child_frame_id = "base_link"
@@ -124,7 +151,6 @@ class TurtleRobot(Node):
         self.broadcaster.sendTransform(odom_base_tf)
 
         # Publishing the joint state
-        joint_state = JointState()
         joint_state.header = Header()
         joint_state.header.stamp.sec = time.sec
         joint_state.header.stamp.nanosec = time.nanosec
@@ -132,12 +158,25 @@ class TurtleRobot(Node):
         joint_state.position = [0.0, 0.0, 0.0]
         self.pub_jointstate.publish(joint_state)
 
+        # Publish the movement command for the turtlesim
+        self.pub_cmdvel.publish(move_msg)
+
     
     ###
     ### SUBSCRIBER CALLBACKS
     ###
     def sub_goal_callback(self, msg):
-        pass
+        """ Callback function for the goal_pose topic.
+
+            Receives a goal position for the turtle robot to move towards,
+            hence it also changes the state to MOVING
+            
+            Args:
+                msg (geometry_msgs/PoseStamped): A message that contains a PoseStamped message, containing the
+                    target x, y and z coordinates
+        """
+        self.state = state.MOVING
+        self.target_pos = Position(msg.pose.position.x, msg.pose.position.y, 0.0) # theta does not matter for reaching the goal
 
     def sub_tilt_callback(self, msg):
         pass
@@ -163,6 +202,53 @@ class TurtleRobot(Node):
             self.new_pos = Position(msg.x, msg.y, msg.theta)
 
     ###
+    ### NAVIGATION FUNCTIONS
+    ###
+    def move_turtle(self, input_msg, vel_x, vel_y):
+        """ Returns a geometry_msgs/Twist message that moves the turtle at a given velocity.
+
+            Args:
+                input_msg (geometry_msgs/Twist): The initial movement command of the turtle, corresponding with linear x & y velocity
+                vel (float): The desired velocity of the turtle
+            
+            Returns:
+                geometry_msgs/Twist: The new movement command for the turtle to move towards the target waypoint
+        """
+        new_msg = input_msg
+        new_msg.linear.x = vel_x
+        new_msg.linear.y = vel_y
+        return new_msg
+
+    
+    def nav_to_goal(self, input_msg, goal_pos):
+        """ Returns geometry_msgs/Twist message to guide turtle robot to a given waypoint from its current position.
+
+            Args:
+                input_msg (geometry_msgs/Twist): The initial movement command of the turtle, corresponding with linear & angular velocity
+                goal_pos (Position): The current target Position (or goal) the turtle is moving towards
+            
+            Returns:
+                geometry_msgs/Twist: The new movement command for the turtle to move towards the target waypoint
+        """
+        new_msg = input_msg
+        # If turtle has reached the goal, change state to STOPPED
+        if self.is_near(self.new_pos, goal_pos, self.tolerance):
+            self.state = state.STOPPED
+            new_msg = Twist()
+        # Else, move towards the goal Position
+        else:
+            vel = self.max_velocity
+            # normalize the translation vector between current and goal Positions
+            diff = [goal_pos.x - self.new_pos.x, goal_pos.y - self.new_pos.y]
+            norm_diff = self.unit_vector_two(diff)
+            # If the turtle is close enough to the goal, slow down the velocity
+            if self.is_near(self.new_pos, goal_pos, 0.125):
+                vel *= 0.2
+            new_msg = self.move_turtle(new_msg, vel * norm_diff[0], vel * norm_diff[1])
+
+        return new_msg
+    
+    ###
     ### HELPER FUNCTIONS
     ###
     def new_transform(self, old, new):
@@ -182,6 +268,31 @@ class TurtleRobot(Node):
         tf.transform.translation.y = change.y
         tf.transform.rotation = angle_axis_to_quaternion(change.theta, [0, 0, -1.0])
         return tf
+    
+    def is_near(self, start_pos, end_pos, rad):
+        """ Returns a boolean that indicates if a set of given 2D coordinates are within a given radius of another set of coordinates.
+
+            Args:
+                start_pos (Position): The current Position
+                end_pos (Position): The target Position
+                rad (float): The radius the two points have to be within of each other to be marked as 'near' each other
+            
+            Returns:
+                Bool: States whether the two points are near each other is True/False
+        """
+        dist = self.distance_helper(start_pos, end_pos)
+        return dist <= rad
+    
+    def distance_helper(self, start_pos, end_pos):
+        """ Returns the distance between two positions on the x & y coords
+        """
+        return math.sqrt((start_pos.x - end_pos.x)**2 + (start_pos.y - end_pos.y)**2)
+    
+    def unit_vector_two(self, input_v):
+        """ Converts a two element vector (array) to a unit vector (array) and returns it
+        """
+        mag = math.sqrt(input_v[0]**2 + input_v[1]**2)
+        return [input_v[0]/mag, input_v[1]/mag]
 
 
 

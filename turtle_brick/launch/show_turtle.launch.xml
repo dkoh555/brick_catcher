@@ -12,7 +12,7 @@
 
     <!-- launch rviz -->
     <node name="rviz2" pkg="rviz2" exec="rviz2"/>
-
+    
     <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot"/>
 
     <!-- if joint_state_publisher is to be launched -->

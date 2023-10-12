@@ -1,15 +1,15 @@
 <launch>
-
-    <!-- WIP still need to figure out how to use the rsp w/ yaml parameters -->
-    <!-- launch the robot_state_publisher, with the turtle robot xacro loaded -->
-    <node name="robot_state_publisher" pkg="robot_state_publisher" exec="robot_state_publisher">
-        <param name="robot_description" value="$(command '$(exec-in-pkg xacro xacro) $(find-pkg-share turtle_brick)/turtle.urdf.xacro')"/>
-        <!-- <param from="$(find-pkg-share turtle_brick)/config/turtle.yaml" /> -->
-    </node>
-
-    <!-- launch rviz -->
-    <node name="rviz2" pkg="rviz2" exec="rviz2"/>
-
+    
+    <!-- WIP still need to figure out how to use w/ yaml parameters -->
+    <!-- run the turtle_robot node to control the robot -->
     <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot"/>
+
+    <!-- run the turtlesim node -->
+    <node name="turtlesim" pkg="turtlesim" exec="turtlesim_node"/>
+
+    <!-- WIP once turtle_robot has jsp need to set it to none here -->
+    <include file="$(find-pkg-share turtle_brick)/launch/show_turtle.launch.xml" >
+        <arg name="use_jsp" value="gui" />
+    </include>
 
 </launch>

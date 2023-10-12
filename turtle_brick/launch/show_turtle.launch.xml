@@ -1,5 +1,4 @@
 <launch>
-
     <!-- controls the behaviour of the joint_state_publisher (gui | jsp | none) -->
     <arg name="use_jsp" default="gui"/>
 
@@ -12,8 +11,6 @@
 
     <!-- launch rviz -->
     <node name="rviz2" pkg="rviz2" exec="rviz2"/>
-    
-    <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot"/>
 
     <!-- if joint_state_publisher is to be launched -->
     <group unless="$(eval '\'$(var use_jsp)\' == \'none\'')">

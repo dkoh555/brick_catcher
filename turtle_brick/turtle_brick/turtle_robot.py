@@ -38,10 +38,10 @@ class TurtleRobot(Node):
         ### Parameters
         ###
         # Declare and get the following parameters: platform_height, wheel_radius, max_velocity, gravity_accel
-        self.declare_parameter("platform_height", 2.5,
+        self.declare_parameter("platform_height", 2,
                                ParameterDescriptor(description="The height between the turtle platform and the ground"))
         self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
-        self.declare_parameter("wheel_radius", 0.5,
+        self.declare_parameter("wheel_radius", 0.2,
                                ParameterDescriptor(description="The proximity in which the turtle needs to be to a waypoint to classify as arrived"))
         self.wheel_radius = self.get_parameter("wheel_radius").get_parameter_value().double_value
         self.declare_parameter("max_velocity", 50.0,
@@ -119,6 +119,7 @@ class TurtleRobot(Node):
         odom_base_tf.child_frame_id = "base_link"
         temp_tf = self.new_transform(self.odom, self.new_pos)
         odom_base_tf = self.update_tf(odom_base_tf, temp_tf)
+        odom_base_tf.transform.translation.z = self.wheel_radius * 2 # raise the base_link so that the turtle_robot is standing on the ground
         self.broadcaster.sendTransform(odom_base_tf)
     
     ###

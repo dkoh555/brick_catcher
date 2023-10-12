@@ -21,7 +21,7 @@
   <exec_depend>xacro</exec_depend>
 
   <depend>std_msgs</depend>
-  <depend>std_srvs</depend>
+  <depend>std_srv</depend>
   <depend>enum</depend>
 
   <depend>geometry_msgs</depend>

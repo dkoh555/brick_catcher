@@ -55,7 +55,7 @@ class TurtleRobot(Node):
         self.declare_parameter("wheel_radius", 0.2,
                                ParameterDescriptor(description="The proximity in which the turtle needs to be to a waypoint to classify as arrived"))
         self.wheel_radius = self.get_parameter("wheel_radius").get_parameter_value().double_value
-        self.declare_parameter("max_velocity", 50.0,
+        self.declare_parameter("max_velocity", 5.0,
                                ParameterDescriptor(description="The velocity of the turtle"))
         self.max_velocity = self.get_parameter("max_velocity").get_parameter_value().double_value
         self.declare_parameter("gravity_accel", 9.81,
@@ -241,8 +241,9 @@ class TurtleRobot(Node):
             # normalize the translation vector between current and goal Positions
             diff = [goal_pos.x - self.new_pos.x, goal_pos.y - self.new_pos.y]
             norm_diff = self.unit_vector_two(diff)
+            self.get_logger().info('unit_vector: %s' % norm_diff)
             # If the turtle is close enough to the goal, slow down the velocity
-            if self.is_near(self.new_pos, goal_pos, 0.125):
+            if self.is_near(self.new_pos, goal_pos, 0.5):
                 vel *= 0.2
             new_msg = self.move_turtle(new_msg, vel * norm_diff[0], vel * norm_diff[1])
 
@@ -255,9 +256,9 @@ class TurtleRobot(Node):
         """ Returns a Position that reflects the transform between old and new positions
         """
         tf = Position()
-        tf.x = old.x - new.x
-        tf.y = old.y - new.y
-        tf.theta = old.theta - new.theta
+        tf.x = new.x - old.x
+        tf.y = new.y - old.y
+        tf.theta = new.theta - old.theta
         return tf
 
     def update_tf(self, input_tf, change):
@@ -289,7 +290,9 @@ class TurtleRobot(Node):
         return math.sqrt((start_pos.x - end_pos.x)**2 + (start_pos.y - end_pos.y)**2)
     
     def unit_vector_two(self, input_v):
-        """ Converts a two element vector (array) to a unit vector (array) and returns it
+        """ Converts a two element vector (array) to a unit vector (array) and returns it.
+            input_v[0] is the x component
+            input_v[1] is the y component
         """
         mag = math.sqrt(input_v[0]**2 + input_v[1]**2)
         return [input_v[0]/mag, input_v[1]/mag]

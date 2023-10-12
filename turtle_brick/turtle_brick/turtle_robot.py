@@ -9,6 +9,7 @@ from .quaternion import angle_axis_to_quaternion
 from rclpy.callback_groups import ReentrantCallbackGroup
 
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Header
 from nav_msgs.msg import Odometry
 from turtle_brick_interfaces.msg import Tilt
 from geometry_msgs.msg import TransformStamped, PoseStamped
@@ -121,6 +122,16 @@ class TurtleRobot(Node):
         odom_base_tf = self.update_tf(odom_base_tf, temp_tf)
         odom_base_tf.transform.translation.z = self.wheel_radius * 2 # raise the base_link so that the turtle_robot is standing on the ground
         self.broadcaster.sendTransform(odom_base_tf)
+
+        # Publishing the joint state
+        joint_state = JointState()
+        joint_state.header = Header()
+        joint_state.header.stamp.sec = time.sec
+        joint_state.header.stamp.nanosec = time.nanosec
+        joint_state.name = ['platform_joint', 'stem_joint', 'wheel_joint']
+        joint_state.position = [0.0, 0.0, 0.0]
+        self.pub_jointstate.publish(joint_state)
+
     
     ###
     ### SUBSCRIBER CALLBACKS

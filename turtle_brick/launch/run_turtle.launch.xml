@@ -9,7 +9,7 @@
 
     <!-- WIP once turtle_robot has jsp need to set it to none here -->
     <include file="$(find-pkg-share turtle_brick)/launch/show_turtle.launch.xml" >
-        <arg name="use_jsp" value="gui" />
+        <arg name="use_jsp" value="none" />
     </include>
 
 </launch>

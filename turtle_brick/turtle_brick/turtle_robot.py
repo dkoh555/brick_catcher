@@ -256,18 +256,6 @@ class TurtleRobot(Node):
 
         return new_msg
     
-    # def rotate_to_goal(self, input_msg):
-    #     """ Returns geometry_msgs/Twist message to guide turtle robot to a given waypoint from its current position.
-
-    #         Args:
-    #             input_msg (geometry_msgs/Twist): The initial movement command of the turtle, corresponding with linear & angular velocity
-    #             goal_pos (Position): The current target Position (or goal) the turtle is moving towards
-            
-    #         Returns:
-    #             geometry_msgs/Twist: The new movement command for the turtle to move towards the target waypoint
-    #     """
-    #     new_msg = input_msg
-    
     ###
     ### HELPER FUNCTIONS
     ###
@@ -333,34 +321,6 @@ class TurtleRobot(Node):
         delt_y = end_y - start_y
         theta = math.atan2(delt_y, delt_x)
         return theta
-    
-    # def is_clockwise_best(self, theta_1, theta_2):
-    #     """ Returns a boolean that indicates if it's faster to rotate clockwise to reach a given target theta from given starting theta.
-
-    #         Args:
-    #             theta_1 (float): The initial theta
-    #             theta_2 (float): The target theta
-            
-    #         Returns:
-    #             Bool: States whether moving clockwise is the fastest path is True/False
-    #     """
-    #     diff_cw = (theta_1 - theta_2) % (2 * math.pi)
-    #     diff_ccw = (theta_2 - theta_1) % (2 * math.pi)
-    #     return diff_cw <= diff_ccw
-    
-    # def rotate_helper(self, twist_msg, ang_vel=0.5):
-    #     """ Returns a geometry_msgs/Twist message that rotates the turtle at a given angular velocity.
-
-    #         Args:
-    #             twist_msg (geometry_msgs/Twist): The initial movement command of the turtle, corresponding with linear & angular velocity
-    #             ang_vel (float): The desired angular velocity of the turtle
-            
-    #         Returns:
-    #             geometry_msgs/Twist: The new movement command for the turtle to move towards the target waypoint
-    #     """
-    #     new_msg = twist_msg
-    #     new_msg.angular.z = ang_vel
-    #     return new_msg
 
 def turtle_robot_entry(args=None):
     rclpy.init(args=args)

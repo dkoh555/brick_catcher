@@ -3,7 +3,7 @@ from rclpy.node import Node
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 from tf2_ros import TransformBroadcaster
 from interactive_markers.interactive_marker_server import InteractiveMarkerServer, InteractiveMarker
-from visualization_msgs.msg import Marker, InteractiveMarkerControl, MarkerArray
+from visualization_msgs.msg import Marker, MarkerArray
 from rcl_interfaces.msg import ParameterDescriptor
 
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -21,11 +21,11 @@ from enum import Enum
 class state(Enum):
     """ Current state of the system (arena node).
         Determines what movement commands are published to the turtle robot,
-        whether it is MOVING or STOPPED
+        whether it is MOVING, STOPPED, SLIDING (off the platform)
     """
     FALLING = 0
     STOPPED = 1
-    PLATFORM = 2
+    SLIDING = 2
 
 class Position3D:
     """ Class for storing the position of the brick in the arena,
@@ -39,7 +39,8 @@ class Position3D:
         self.theta = theta
 
 class Arena(Node):
-    """ Node for simulating the environment in rviz
+    """ Node for simulating the environment in rviz,
+        containing the walls of the arena and the brick with its physics
     """
     def __init__(self):
         # Initialize the node
@@ -62,7 +63,7 @@ class Arena(Node):
         ###
         # Create publisher for the Arena markers
         markerQoS = QoSProfile(depth=10, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
-        self.pub_wall = self.create_publisher(Marker, "visualization_marker", markerQoS)
+        self.pub_marker = self.create_publisher(MarkerArray, "visualization_marker_", markerQoS)
 
         ###
         ### SERVICES
@@ -75,17 +76,18 @@ class Arena(Node):
         ###
         ### BROADCASTER
         ###
-        # create the broadcaster for transforms
+        # Create the broadcaster for transforms
         self.broadcaster = TransformBroadcaster(self)
 
         ###
         ### TIMER
         ###
-        timer_period = 1.0/self.frequency  # seconds
-        # create timer and timer callback
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.timer = self.create_timer(self.period, self.timer_callback)
+
 
     def init_var(self):
+        """ Initialize all of the arena node's variables
+        """
         # initialize arena variables
         self.arena_length = 11.12
         self.wall_width = 0.005
@@ -94,9 +96,11 @@ class Arena(Node):
         # initialize brick variables
         self.brick_dim = [0.5, 0.3, 0.3] # x, y, z measurements
         self.brick_pos = Position3D(3.0, 3.0, 7.5, 0.0)
+        self.brick_vel = 0.0
         # initialize general node variables
         self.state = state.STOPPED
         self.frequency = 250
+        self.period = 1/self.frequency
 
     ###
     ### TIMER CALLBACK
@@ -110,7 +114,10 @@ class Arena(Node):
 
         # If the brick is in a FALLING state, adjust the tf
         if self.state == state.FALLING:
-            pass
+            self.falling_brick()
+            # If the brick reaches the ground, switch to a STOPPED state
+            if self.brick_pos.z <= 0.0:
+                self.state = state.STOPPED
 
         # Create the transform for world -> brick
         world_brick_tf.header.stamp = time
@@ -120,9 +127,9 @@ class Arena(Node):
         world_brick_tf = self.update_tf(world_brick_tf, temp_tf)
         self.broadcaster.sendTransform(world_brick_tf)
 
-        # Publishing Markers
-        self.pub_walls()
-        self.pub_brick()
+        self.wall_markers()
+        self.brick_marker()
+        self.pub_marker.publish(self.marker_array)
 
     ###
     ### SERVICE CALLBACKS
@@ -131,11 +138,34 @@ class Arena(Node):
         pass
 
     def drop_callback(self, request, response):
-        pass
+        # If brick is STOPPED and not on the ground, it will begin to fall
+        if self.state == state.STOPPED and self.brick_pos.z >= 0.0:
+            self.state = state.FALLING
+        return response
+
+    ###
+    ### BRICK FUNCTIONS
+    ###
+    def falling_brick(self):
+        """ Updates the brick's position that reflects the falling brick, updating the brick's velocity in the process
+        """
+        displacement = self.find_displacement(self.brick_vel, self.gravity_accel, self.period)
+        self.brick_vel = self.find_vel(self.brick_vel, self.gravity_accel, self.period)
+        self.brick_pos.z -= displacement
 
     ###
     ### HELPER FUNCTIONS
     ###
+    def find_vel(self, old_vel, acceleration, time):
+        """ Returns the new velocity after taking into account old velocity, acceleration, and time difference
+        """
+        return old_vel + acceleration * time
+    
+    def find_displacement(self, old_vel, acceleration, time):
+        """ Returns the displacement over a time period after taking into account old velocity, acceleration, and the period itself
+        """
+        return old_vel * time + 0.5 * acceleration * time**2
+
     def new_transform(self, new, old):
         """ Returns a Position3D that reflects the transform between old and new positions
         """
@@ -159,7 +189,7 @@ class Arena(Node):
     ###
     ### MARKER FUNCTIONS
     ###
-    def pub_brick(self):
+    def brick_marker(self):
         self.brick = Marker()
         self.brick.header.frame_id = "brick"
         self.brick.header.stamp = self.get_clock().now().to_msg()
@@ -181,9 +211,13 @@ class Arena(Node):
         self.brick.color.g = 0.0
         self.brick.color.b = 1.0
         self.brick.color.a = 1.0
-        self.pub_wall.publish(self.brick)
+        # Filling the Marker Array
+        self.marker_array.markers[4] = self.brick
 
-    def pub_walls(self):
+    def wall_markers(self):
+        # Initialize the Marker Array
+        self.marker_array = MarkerArray()
+        
         self.n_wall = Marker()
         self.n_wall.header.frame_id = "world"
         self.n_wall.header.stamp = self.get_clock().now().to_msg()
@@ -205,7 +239,6 @@ class Arena(Node):
         self.n_wall.color.g = 0.0
         self.n_wall.color.b = 0.0
         self.n_wall.color.a = 1.0
-        self.pub_wall.publish(self.n_wall)
 
         self.s_wall = Marker()
         self.s_wall.header.frame_id = "world"
@@ -228,7 +261,6 @@ class Arena(Node):
         self.s_wall.color.g = 0.0
         self.s_wall.color.b = 1.0
         self.s_wall.color.a = 1.0
-        self.pub_wall.publish(self.s_wall)
 
         self.e_wall = Marker()
         self.e_wall.header.frame_id = "world"
@@ -251,7 +283,6 @@ class Arena(Node):
         self.e_wall.color.g = 1.0
         self.e_wall.color.b = 0.0
         self.e_wall.color.a = 1.0
-        self.pub_wall.publish(self.e_wall)
 
         self.w_wall = Marker()
         self.w_wall.header.frame_id = "world"
@@ -274,7 +305,8 @@ class Arena(Node):
         self.w_wall.color.g = 1.0
         self.w_wall.color.b = 1.0
         self.w_wall.color.a = 1.0
-        self.pub_wall.publish(self.w_wall)
+        # Filling the Marker Array
+        self.marker_array.markers = [self.n_wall, self.s_wall, self.e_wall, self.w_wall, None]
 
 def arena_entry(args=None):
     rclpy.init(args=args)

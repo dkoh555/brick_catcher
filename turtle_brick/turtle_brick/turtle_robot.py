@@ -46,7 +46,7 @@ class TurtleRobot(Node):
         self.cbgroup = ReentrantCallbackGroup()
 
         ###
-        ### Parameters
+        ### PARAMETERS
         ###
         # Declare and get the following parameters: platform_height, wheel_radius, max_velocity, gravity_accel
         self.declare_parameter("platform_height", 2,

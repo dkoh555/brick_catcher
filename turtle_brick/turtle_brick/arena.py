@@ -135,9 +135,38 @@ class Arena(Node):
     ### SERVICE CALLBACKS
     ###
     def place_callback(self, request, response):
-        pass
+        """ Callback function for the place service.
+
+            When provided with a Place request, the brick will relocate in the requested 3D coordinates
+            
+            Args:
+                x (float64): The desired x coord of the brick
+                y (float64): The desired y coord of the brick
+                z (float64): The desired z coord of the brick
+
+                response (Empty): The response object
+
+            Returns:
+                Empty: Contains nothing
+        """
+        self.state = state.STOPPED
+        self.brick_pos = Position3D(request.x, request.y, request.z, 0.0)
+        return response
 
     def drop_callback(self, request, response):
+        """ Callback function for the drop service.
+
+            When provided with a std_srvs/Empty message,
+            the node will switch from STOPPED to FALLING states
+            
+            Args:
+                request (Empty): A message that contains nothing
+
+                response (Empty): The response object
+
+            Returns:
+                Empty: Contains nothing
+        """
         # If brick is STOPPED and not on the ground, it will begin to fall
         if self.state == state.STOPPED and self.brick_pos.z >= 0.0:
             self.state = state.FALLING

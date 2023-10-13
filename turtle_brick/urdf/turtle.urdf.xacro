@@ -1,12 +1,13 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="turtle">
 
-    <!-- <xacro:property name="yaml_file" value="$(find turtle_brick)/config/turtle.yaml" />
-    <xacro:property name="props" value="${xacro.load_yaml(yaml_file)}" /> -->
+    <!-- loading in parameter file -->
+    <xacro:property name="yaml_file" value="$(find turtle_brick)/config/turtle.yaml" />
+    <xacro:property name="props" value="${xacro.load_yaml(yaml_file)['/**']['ros__parameters']}" />
     
     <!-- platform_height is the same as total height of the turtle -->
-    <xacro:property name="platform_height" value="2"/>
-    <xacro:property name="wheel_radius" value="0.2"/>
+    <xacro:property name="platform_height" value="${props['platform_height']}"/>
+    <xacro:property name="wheel_radius" value="${props['wheel_radius']}"/>
     <!-- constant dimensions -->
     <xacro:property name="base_length" value="0.125"/>
     <xacro:property name="cylinder_radius" value="${base_length/2}"/>

@@ -2,7 +2,9 @@
     
     <!-- WIP still need to figure out how to use w/ yaml parameters -->
     <!-- run the turtle_robot node to control the robot -->
-    <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot"/>
+    <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot">
+        <param from="$(find-pkg-share turtle_brick)/config/turtle.yaml" />
+    </node>
 
     <!-- run the turtlesim node -->
     <node name="turtlesim" pkg="turtlesim" exec="turtlesim_node">

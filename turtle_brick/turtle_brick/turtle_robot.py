@@ -118,6 +118,7 @@ class TurtleRobot(Node):
         self.new_pos = Position()
         self.transform = Position()
         # Joint States
+        self.platform_angle = 0.0
         self.wheel_angle = 0.0
         # Goal/Target Position
         self.target_pos = Position()
@@ -161,7 +162,7 @@ class TurtleRobot(Node):
         joint_state.header.stamp.sec = time.sec
         joint_state.header.stamp.nanosec = time.nanosec
         joint_state.name = ['platform_joint', 'stem_joint', 'wheel_joint']
-        joint_state.position = [0.0, self.target_pos.theta, self.wheel_angle]
+        joint_state.position = [self.platform_angle, self.target_pos.theta, self.wheel_angle]
         self.pub_jointstate.publish(joint_state)
 
         # Publish the movement command for the turtlesim
@@ -186,7 +187,14 @@ class TurtleRobot(Node):
         self.target_pos = Position(msg.pose.position.x, msg.pose.position.y, target_theta) # theta is the orientation the turtle robot should face
 
     def sub_tilt_callback(self, msg):
-        pass
+        """ Callback function for the tilt topic.
+
+            Receives a tilt angle for the platform
+            
+            Args:
+                msg (turtle_brick_interfaces/Tilt): A message that contains a float for the angle
+        """
+        self.platform_angle = msg.angle
 
     def sub_pos_callback(self, msg):
         """ Callback function for the turtle1/pose topic.

@@ -1,0 +1,14 @@
+<launch>
+    
+    <!-- WIP run the control node -->
+    <!-- <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot">
+        <param from="$(find-pkg-share turtle_brick)/config/turtle.yaml" />
+    </node> -->
+
+    <!-- run the arena node -->
+    <node name="arena" pkg="turtle_brick" exec="arena" />
+
+    <!-- launch the run_turtle launch file -->
+    <include file="$(find-pkg-share turtle_brick)/launch/run_turtle.launch.xml" />
+
+</launch>

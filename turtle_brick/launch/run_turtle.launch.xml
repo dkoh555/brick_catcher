@@ -1,6 +1,5 @@
 <launch>
     
-    <!-- WIP still need to figure out how to use w/ yaml parameters -->
     <!-- run the turtle_robot node to control the robot -->
     <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot">
         <param from="$(find-pkg-share turtle_brick)/config/turtle.yaml" />
@@ -12,7 +11,7 @@
         <param name="holonomic" value="true" />
     </node>
 
-    <!-- WIP once turtle_robot has jsp need to set it to none here -->
+    <!-- set use_jsp = none -->
     <include file="$(find-pkg-share turtle_brick)/launch/show_turtle.launch.xml" >
         <arg name="use_jsp" value="none" />
     </include>

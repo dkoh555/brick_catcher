@@ -49,7 +49,7 @@ class TurtleRobot(Node):
         ### PARAMETERS
         ###
         # Declare and get the following parameters: platform_height, wheel_radius, max_velocity, gravity_accel
-        self.declare_parameter("platform_height", 2,
+        self.declare_parameter("platform_height", 2.0,
                                ParameterDescriptor(description="The height between the turtle platform and the ground"))
         self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
         self.declare_parameter("wheel_radius", 0.2,

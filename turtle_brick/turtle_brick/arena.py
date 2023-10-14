@@ -8,7 +8,8 @@ from rcl_interfaces.msg import ParameterDescriptor
 
 from rclpy.callback_groups import ReentrantCallbackGroup
 
-from geometry_msgs.msg import TransformStamped, Pose, Quaternion
+from geometry_msgs.msg import TransformStamped, Quaternion
+from turtlesim.msg import Pose
 from std_srvs.srv import Empty
 from turtle_brick_interfaces.srv import Place
 
@@ -61,7 +62,7 @@ class Arena(Node):
         self.declare_parameter("gravity_accel", 9.81,
                                ParameterDescriptor(description="The acceleration caused by gravity"))
         self.gravity_accel = self.get_parameter("gravity_accel").get_parameter_value().double_value
-        self.declare_parameter("platform_height", 2,
+        self.declare_parameter("platform_height", 2.0,
                                ParameterDescriptor(description="The height between the turtle platform and the ground"))
         self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
         # Declare and get extra parameters
@@ -75,6 +76,13 @@ class Arena(Node):
         # Create publisher for the Arena markers
         markerQoS = QoSProfile(depth=10, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
         self.pub_marker = self.create_publisher(MarkerArray, "visualization_marker_", markerQoS)
+
+        ###
+        ### SUBSCRIBERS
+        ###
+        # Create subscriber for getting the turtle's position in turtlesim
+        self.sub_pos = self.create_subscription(Pose, 'turtle1/pose', self.sub_pos_callback, 10)
+        self.sub_pos # Used to prevent warnings
 
         ###
         ### SERVICES
@@ -116,7 +124,7 @@ class Arena(Node):
         self.brick_vel = 0.0
         # initialize turtle_robot/platform variables
         self.robot_pos = Position3D()
-        self.platform_tilt = 0.0
+        self.platform_angle = 0.0
         self.robot_tf_ready = False
         # initialize general node variables
         self.state = state.STOPPED
@@ -133,9 +141,6 @@ class Arena(Node):
         # Declaring all the import variables/transforms/joint states
         world_brick_tf = TransformStamped()
 
-        # Check and update the current position of the turtle robot relative to the world frame
-        self.update_robot_pos()
-
         # If the brick is in a FALLING state, adjust the tf
         if self.state == state.FALLING:
             self.falling_brick()
@@ -143,7 +148,7 @@ class Arena(Node):
             if self.is_on_ground():
                 self.state = state.STOPPED
                 self.brick_vel = 0.0
-            elif self.is_on_platform():
+            if self.is_on_platform():
                 self.state = state.SLIDING
                 self.brick_vel = 0.0
 
@@ -159,6 +164,12 @@ class Arena(Node):
         self.brick_marker()
         self.pub_marker.publish(self.marker_array)
 
+    ###
+    ### SUBSCRIBER CALLBACKS
+    ###
+    def sub_pos_callback(self, msg):
+        self.robot_pos = Position3D(msg.x, msg.y, 0.0, self.platform_angle) # z = 0.0 because robot is on the ground
+    
     ###
     ### SERVICE CALLBACKS
     ###
@@ -218,50 +229,9 @@ class Arena(Node):
     def is_on_platform(self):
         """ Returns true if the brick has landed on the platform
         """
-        cond1 = self.brick_pos.z <= self.platform_height
+        cond1 = (self.brick_pos.z <= self.platform_height)
         cond2 = self.is_near_xy(self.brick_pos, self.robot_pos, self.platform_radius)
         return cond1 and cond2
-
-    ###
-    ### TURTLE ROBOT FUNCTIONS
-    ###
-    def update_robot_pos(self):
-        """ Updates the current known Position3D of the turtle robot relative to the world frame
-        """
-        # pass
-        # try:
-        #     t1 = self.tf_buffer.lookup_transform(
-        #                         'world',
-        #                         'brick',
-        #                         self.time)
-        #     self.robot_pos = Position3D(t1.transform.translation.x,
-        #                                 t1.transform.translation.y,
-        #                                     t1.transform.translation.z,
-        #                                     self.platform_tilt)
-        # except TransformException as ex:
-        #     self.get_logger().info('Yet to find desired world -> odom -> base_link transform')
-        
-        t1 = self.tf_buffer.lookup_transform(
-                                'world',
-                                'brick',
-                                self.time)
-        self.robot_pos = Position3D(t1.transform.translation.x,
-                                    t1.transform.translation.y,
-                                        t1.transform.translation.z,
-                                        self.platform_tilt)
-
-        # t1 = self.tf_buffer.lookup_transform(
-        #                     'world',
-        #                     'odom',
-        #                     self.get_clock().now().to_msg())
-        # t2 = self.tf_buffer.lookup_transform(
-        #                 'odom',
-        #                 'base_link',
-        #                 self.get_clock().now().to_msg())
-        # self.robot_pos = Position3D(t1.transform.translation.x + t1.transform.translation.x,
-        #                             t1.transform.translation.y + t2.transform.translation.y,
-        #                                 t1.transform.translation.z + t2.transform.translation.z,
-        #                                 self.platform_tilt)
 
     ###
     ### HELPER FUNCTIONS

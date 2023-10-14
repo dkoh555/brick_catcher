@@ -6,7 +6,9 @@
     </node> -->
 
     <!-- run the arena node -->
-    <node name="arena" pkg="turtle_brick" exec="arena" />
+    <node name="arena" pkg="turtle_brick" exec="arena">
+        <param from="$(find-pkg-share turtle_brick)/config/turtle.yaml" />
+    </node>
 
     <!-- launch the run_turtle launch file -->
     <include file="$(find-pkg-share turtle_brick)/launch/run_turtle.launch.xml" />

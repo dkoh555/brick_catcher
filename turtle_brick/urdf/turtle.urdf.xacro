@@ -8,11 +8,11 @@
     <!-- platform_height is the same as total height of the turtle -->
     <xacro:property name="platform_height" value="${props['platform_height']}"/>
     <xacro:property name="wheel_radius" value="${props['wheel_radius']}"/>
+    <xacro:property name="platform_radius" value="${props['platform_radius']}"/>
     <!-- constant dimensions -->
     <xacro:property name="base_length" value="0.125"/>
     <xacro:property name="cylinder_radius" value="${base_length/2}"/>
     <xacro:property name="stem_radius" value="${base_length/2}"/>
-    <xacro:property name="platform_radius" value="0.5"/>
     <xacro:property name="platform_thickness" value="0.05"/>
     <xacro:property name="wheel_thickness" value="0.1"/>
     <!-- dimensions adaptive to parameters -->

@@ -18,6 +18,10 @@ import math
 
 from enum import Enum
 
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+
 class state(Enum):
     """ Current state of the system (arena node).
         Determines what movement commands are published to the turtle robot,
@@ -53,10 +57,17 @@ class Arena(Node):
         ###
         ### PARAMETERS
         ###
-        # Declare and get the following parameters: gravity_accel
+        # Declare and get the following parameters: gravity_accel, platform_height
         self.declare_parameter("gravity_accel", 9.81,
                                ParameterDescriptor(description="The acceleration caused by gravity"))
         self.gravity_accel = self.get_parameter("gravity_accel").get_parameter_value().double_value
+        self.declare_parameter("platform_height", 2,
+                               ParameterDescriptor(description="The height between the turtle platform and the ground"))
+        self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
+        # Declare and get extra parameters
+        self.declare_parameter("platform_radius", 0.5,
+                               ParameterDescriptor(description="The platform radius of the turtle robot"))
+        self.platform_radius = self.get_parameter("platform_radius").get_parameter_value().double_value
 
         ###
         ### PUBLISHERS
@@ -80,6 +91,12 @@ class Arena(Node):
         self.broadcaster = TransformBroadcaster(self)
 
         ###
+        ### LISTENER
+        ###
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        ###
         ### TIMER
         ###
         self.timer = self.create_timer(self.period, self.timer_callback)
@@ -97,6 +114,10 @@ class Arena(Node):
         self.brick_dim = [0.5, 0.3, 0.3] # x, y, z measurements
         self.brick_pos = Position3D(3.0, 3.0, 7.5, 0.0)
         self.brick_vel = 0.0
+        # initialize turtle_robot/platform variables
+        self.robot_pos = Position3D()
+        self.platform_tilt = 0.0
+        self.robot_tf_ready = False
         # initialize general node variables
         self.state = state.STOPPED
         self.frequency = 250
@@ -107,20 +128,27 @@ class Arena(Node):
     ### 
     def timer_callback(self):
         # Initialize the current time
-        time = self.get_clock().now().to_msg()
+        self.time = self.get_clock().now().to_msg()
 
         # Declaring all the import variables/transforms/joint states
         world_brick_tf = TransformStamped()
+
+        # Check and update the current position of the turtle robot relative to the world frame
+        self.update_robot_pos()
 
         # If the brick is in a FALLING state, adjust the tf
         if self.state == state.FALLING:
             self.falling_brick()
             # If the brick reaches the ground, switch to a STOPPED state
-            if self.brick_pos.z <= 0.0:
+            if self.is_on_ground():
                 self.state = state.STOPPED
+                self.brick_vel = 0.0
+            elif self.is_on_platform():
+                self.state = state.SLIDING
+                self.brick_vel = 0.0
 
         # Create the transform for world -> brick
-        world_brick_tf.header.stamp = time
+        world_brick_tf.header.stamp = self.time
         world_brick_tf.header.frame_id = "world"
         world_brick_tf.child_frame_id = "brick"
         temp_tf = self.new_transform(self.brick_pos, Position3D())
@@ -182,6 +210,59 @@ class Arena(Node):
         self.brick_vel = self.find_vel(self.brick_vel, self.gravity_accel, self.period)
         self.brick_pos.z -= displacement
 
+    def is_on_ground(self):
+        """ Returns true if the brick has landed on the ground
+        """
+        return self.brick_pos.z <= 0.0
+
+    def is_on_platform(self):
+        """ Returns true if the brick has landed on the platform
+        """
+        cond1 = self.brick_pos.z <= self.platform_height
+        cond2 = self.is_near_xy(self.brick_pos, self.robot_pos, self.platform_radius)
+        return cond1 and cond2
+
+    ###
+    ### TURTLE ROBOT FUNCTIONS
+    ###
+    def update_robot_pos(self):
+        """ Updates the current known Position3D of the turtle robot relative to the world frame
+        """
+        # pass
+        # try:
+        #     t1 = self.tf_buffer.lookup_transform(
+        #                         'world',
+        #                         'brick',
+        #                         self.time)
+        #     self.robot_pos = Position3D(t1.transform.translation.x,
+        #                                 t1.transform.translation.y,
+        #                                     t1.transform.translation.z,
+        #                                     self.platform_tilt)
+        # except TransformException as ex:
+        #     self.get_logger().info('Yet to find desired world -> odom -> base_link transform')
+        
+        t1 = self.tf_buffer.lookup_transform(
+                                'world',
+                                'brick',
+                                self.time)
+        self.robot_pos = Position3D(t1.transform.translation.x,
+                                    t1.transform.translation.y,
+                                        t1.transform.translation.z,
+                                        self.platform_tilt)
+
+        # t1 = self.tf_buffer.lookup_transform(
+        #                     'world',
+        #                     'odom',
+        #                     self.get_clock().now().to_msg())
+        # t2 = self.tf_buffer.lookup_transform(
+        #                 'odom',
+        #                 'base_link',
+        #                 self.get_clock().now().to_msg())
+        # self.robot_pos = Position3D(t1.transform.translation.x + t1.transform.translation.x,
+        #                             t1.transform.translation.y + t2.transform.translation.y,
+        #                                 t1.transform.translation.z + t2.transform.translation.z,
+        #                                 self.platform_tilt)
+
     ###
     ### HELPER FUNCTIONS
     ###
@@ -214,6 +295,25 @@ class Arena(Node):
         tf.transform.translation.z = change.z
         tf.transform.rotation = angle_axis_to_quaternion(change.theta, [0.0, 0.0, -1.0])
         return tf
+    
+    def is_near_xy(self, start_pos, end_pos, rad):
+        """ Returns a boolean that indicates if a set of given x & y coordinates are within a given radius of another set of coordinates.
+
+            Args:
+                start_pos (Position): The current Position
+                end_pos (Position): The target Position
+                rad (float): The radius the two points have to be within of each other to be marked as 'near' each other
+            
+            Returns:
+                Bool: States whether the two points are near each other is True/False
+        """
+        dist = self.distance_helper(start_pos, end_pos)
+        return dist <= rad
+    
+    def distance_helper(self, start_pos, end_pos):
+        """ Returns the distance between two positions on the x & y coords
+        """
+        return math.sqrt((start_pos.x - end_pos.x)**2 + (start_pos.y - end_pos.y)**2)
 
     ###
     ### MARKER FUNCTIONS

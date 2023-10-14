@@ -1,3 +1,4 @@
 Students collaborated with: None
 
-Links cited:
+Links cited: 
+1. For figuring out how to take in tfs for the arena.py: https://automaticaddison.com/how-to-create-a-tf-listener-using-ros-2-and-python/

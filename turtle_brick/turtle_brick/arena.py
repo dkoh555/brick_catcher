@@ -29,8 +29,9 @@ class state(Enum):
         whether it is MOVING, STOPPED, SLIDING (off the platform)
     """
     FALLING = 0
-    STOPPED = 1
-    SLIDING = 2
+    GROUNDED = 1
+    PLATFORMED = 2
+    SLIDING = 3
 
 class Position3D:
     """ Class for storing the position of the brick in the arena,
@@ -127,7 +128,7 @@ class Arena(Node):
         self.platform_angle = 0.0
         self.robot_tf_ready = False
         # initialize general node variables
-        self.state = state.STOPPED
+        self.state = state.GROUNDED
         self.frequency = 250
         self.period = 1/self.frequency
 
@@ -146,10 +147,10 @@ class Arena(Node):
             self.falling_brick()
             # If the brick reaches the ground, switch to a STOPPED state
             if self.is_on_ground():
-                self.state = state.STOPPED
+                self.state = state.GROUNDED
                 self.brick_vel = 0.0
             if self.is_on_platform():
-                self.state = state.SLIDING
+                self.state = state.PLATFORMED
                 self.brick_vel = 0.0
 
         # Create the transform for world -> brick
@@ -188,7 +189,7 @@ class Arena(Node):
             Returns:
                 Empty: Contains nothing
         """
-        self.state = state.STOPPED
+        self.state = state.GROUNDED
         self.brick_pos = Position3D(request.x, request.y, request.z, 0.0)
         return response
 
@@ -207,7 +208,7 @@ class Arena(Node):
                 Empty: Contains nothing
         """
         # If brick is STOPPED and not on the ground, it will begin to fall
-        if self.state == state.STOPPED and self.brick_pos.z >= 0.0:
+        if self.state == state.GROUNDED and self.brick_pos.z >= 0.0:
             self.state = state.FALLING
         return response
 

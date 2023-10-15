@@ -82,6 +82,8 @@ class Catcher(Node):
         ###
         # Create service that triggers the brick to drop towards the ground
         self.srv_drop = self.create_service(Empty, 'drop', self.drop_callback)
+        # Create service that detects when the brick is moved to a position in the arena
+        self.srv_place = self.create_service(Place, 'place', self.place_callback)
 
         ###
         ### LISTENER
@@ -141,7 +143,7 @@ class Catcher(Node):
         if self.state == state.CAUGHT:
             # And f not near the odom point, move towards it;
             # else send the message to tilt the platform
-            if not self.is_near_xy(self.robot_pos, self.odom_pos, 0.0):
+            if not self.is_near_xy(self.robot_pos, self.odom_pos, 0.1):
                 msg = PoseStamped()
                 msg.header.stamp = self.get_clock().now().to_msg()
                 msg.header.frame_id = 'world'
@@ -152,15 +154,9 @@ class Catcher(Node):
             else:
                 pass
 
-            
-            
-
-
-
     ###
     ### SERVICE CALLBACKS
     ###
-
     def drop_callback(self, request, response):
         """ Callback function for the drop service.
 
@@ -180,6 +176,23 @@ class Catcher(Node):
             self.state = state.FALLING
         return response
         
+    def place_callback(self, request, response):
+        """ Callback function for the place service.
+
+            When provided with a Place request, the brick will relocate in the requested 3D coordinates
+            
+            Args:
+                x (float64): The desired x coord of the brick
+                y (float64): The desired y coord of the brick
+                z (float64): The desired z coord of the brick
+
+                response (Empty): The response object
+
+            Returns:
+                Empty: Contains nothing
+        """
+        self.state = state.HOVERING
+        return response
 
     ###
     ### TF LISTENER
@@ -189,14 +202,12 @@ class Catcher(Node):
         if trans_ready:
             trans = self._tf_buffer.lookup_transform('world', 'base_link', rclpy.time.Time())
             self.robot_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
-            # self.get_logger().info('ROBOT')
 
     def update_brick_pos(self):
         trans_ready = self._tf_buffer.can_transform('world', 'brick', rclpy.time.Time())
         if trans_ready:
             trans = self._tf_buffer.lookup_transform('world', 'brick', rclpy.time.Time())
             self.brick_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
-            # self.get_logger().info('BRICK')
 
     def update_odom_pos(self):
         trans_ready = self._tf_buffer.can_transform('world', 'odom', rclpy.time.Time())

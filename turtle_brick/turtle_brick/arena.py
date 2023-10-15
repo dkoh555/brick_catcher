@@ -150,6 +150,8 @@ class Arena(Node):
                 self.brick_vel = 0.0
 
         # If the brick is in a PLATFORMED state, it needs to follow the platform
+        if self.state == state.PLATFORMED:
+            self.following_brick()
 
         # Create the transform for world -> brick
         world_brick_tf.header.stamp = self.time
@@ -226,7 +228,8 @@ class Arena(Node):
     def following_brick(self):
         """ Updates the brick's position that reflects the change in posiiton of the platform
         """
-        pass
+        self.brick_pos.x = self.robot_pos.x
+        self.brick_pos.y = self.robot_pos.y
 
     def is_on_ground(self):
         """ Returns true if the brick has landed on the ground

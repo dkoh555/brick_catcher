@@ -79,13 +79,6 @@ class Arena(Node):
         self.pub_marker = self.create_publisher(MarkerArray, "visualization_marker_", markerQoS)
 
         ###
-        ### SUBSCRIBERS
-        ###
-        # Create subscriber for getting the turtle's position in turtlesim
-        self.sub_pos = self.create_subscription(Pose, 'turtle1/pose', self.sub_pos_callback, 10)
-        self.sub_pos # Used to prevent warnings
-
-        ###
         ### SERVICES
         ###
         # Create service that moves the brick to a provided location in the world
@@ -102,8 +95,8 @@ class Arena(Node):
         ###
         ### LISTENER
         ###
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self._tf_buffer = Buffer()
+        self._tf_listener = TransformListener(self._tf_buffer, self)
 
         ###
         ### TIMER
@@ -139,6 +132,9 @@ class Arena(Node):
         # Initialize the current time
         self.time = self.get_clock().now().to_msg()
 
+        # Update the robot position in the arena
+        self.update_robot_pos()
+
         # Declaring all the import variables/transforms/joint states
         world_brick_tf = TransformStamped()
 
@@ -167,12 +163,6 @@ class Arena(Node):
         self.brick_marker()
         self.pub_marker.publish(self.marker_array)
 
-    ###
-    ### SUBSCRIBER CALLBACKS
-    ###
-    def sub_pos_callback(self, msg):
-        self.robot_pos = Position3D(msg.x, msg.y, 0.0, self.platform_angle) # z = 0.0 because robot is on the ground
-    
     ###
     ### SERVICE CALLBACKS
     ###
@@ -213,6 +203,15 @@ class Arena(Node):
         if self.state == state.GROUNDED and self.brick_pos.z >= 0.0:
             self.state = state.FALLING
         return response
+
+    ###
+    ### TF LISTENER
+    ###
+    def update_robot_pos(self):
+        trans_ready = self._tf_buffer.can_transform('world', 'base_link', rclpy.time.Time())
+        if trans_ready:
+            trans = self._tf_buffer.lookup_transform('world', 'base_link', rclpy.time.Time())
+            self.robot_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
 
     ###
     ### BRICK FUNCTIONS

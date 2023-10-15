@@ -10,6 +10,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 
 from geometry_msgs.msg import TransformStamped, Quaternion, PoseStamped, Pose
 from std_srvs.srv import Empty
+from turtle_brick_interfaces.msg import Tilt
 from turtle_brick_interfaces.srv import Place
 
 from .quaternion import angle_axis_to_quaternion
@@ -76,6 +77,8 @@ class Catcher(Node):
         ###
         # Create publisher for goal_pose messages
         self.pub_goal = self.create_publisher(PoseStamped, 'goal_pose', 10)
+        # Create publisher for tilt messages
+        self.pub_tilt = self.create_publisher(Tilt, 'tilt', 10)
 
         ###
         ### SERVICES
@@ -105,6 +108,7 @@ class Catcher(Node):
         # initialize turtle_robot/platform variables
         self.robot_pos = Position3D()
         self.odom_pos = Position3D()
+        self.platform_pos = Position3D()
         # initialize general node variables
         self.reachable = False
         self.state = state.HOVERING
@@ -119,6 +123,11 @@ class Catcher(Node):
         self.update_robot_pos()
         self.update_brick_pos()
         self.update_odom_pos()
+        self.update_platform_pos()
+
+        # Initialize Tilt message
+        tilt_msg = Tilt()
+        tilt_msg.angle = 0.0
 
         # If the brick is hovering, check if it's reachable
         if self.state == state.HOVERING:
@@ -152,7 +161,16 @@ class Catcher(Node):
                 msg.pose.position.y = self.odom_pos.y
                 self.pub_goal.publish(msg)
             else:
-                pass
+                # Send message to tilt the platform
+                tilt_msg.angle = 0.5
+                # If the brick and platform are a platform_radius distance away from each other,
+                # center the platform and set state to GROUNDED
+                if self.distance_helper3D(self.platform_pos, self.brick_pos) >= (self.platform_radius + 0.1):
+                    tilt_msg.angle = 0.0
+                    self.state = state.GROUNDED
+        
+        # Publish Tilt message
+        self.pub_tilt.publish(tilt_msg)
 
     ###
     ### SERVICE CALLBACKS
@@ -214,6 +232,12 @@ class Catcher(Node):
         if trans_ready:
             trans = self._tf_buffer.lookup_transform('world', 'odom', rclpy.time.Time())
             self.odom_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
+    
+    def update_platform_pos(self):
+        trans_ready = self._tf_buffer.can_transform('world', 'platform_link', rclpy.time.Time())
+        if trans_ready:
+            trans = self._tf_buffer.lookup_transform('world', 'platform_link', rclpy.time.Time())
+            self.platform_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
 
     ###
     ### CATCHING FUNCTIONS
@@ -273,6 +297,11 @@ class Catcher(Node):
         """ Returns the distance between two positions on the x & y coords
         """
         return math.sqrt((start_pos.x - end_pos.x)**2 + (start_pos.y - end_pos.y)**2)
+    
+    def distance_helper3D(self, start_pos, end_pos):
+        """ Returns the distance between two positions on the x & y coords
+        """
+        return math.sqrt((start_pos.x - end_pos.x)**2 + (start_pos.y - end_pos.y)**2 + (start_pos.z - end_pos.z)**2)
 
 
 def catcher_entry(args=None):

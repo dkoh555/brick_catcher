@@ -119,6 +119,7 @@ class Arena(Node):
         # initialize turtle_robot/platform variables
         self.robot_pos = Position3D()
         self.platform_angle = 0.0
+        self.raw_platform_angle = Quaternion()
         self.robot_tf_ready = False
         # initialize general node variables
         self.state = state.GROUNDED
@@ -132,8 +133,9 @@ class Arena(Node):
         # Initialize the current time
         self.time = self.get_clock().now().to_msg()
 
-        # Update the robot position in the arena
+        # Update the robot position and platform angle in the arena
         self.update_robot_pos()
+        self.update_raw_platform_angle()
 
         # Declaring all the import variables/transforms/joint states
         world_brick_tf = TransformStamped()
@@ -152,6 +154,10 @@ class Arena(Node):
         # If the brick is in a PLATFORMED state, it needs to follow the platform
         if self.state == state.PLATFORMED:
             self.following_brick()
+            # If the platform is not centered, change to SLIDING state
+            if not self.raw_platform_angle == Quaternion():
+                self.brick_pos.theta = 0.5
+                self.state = state.SLIDING
 
         # Create the transform for world -> brick
         world_brick_tf.header.stamp = self.time
@@ -215,6 +221,12 @@ class Arena(Node):
             trans = self._tf_buffer.lookup_transform('world', 'base_link', rclpy.time.Time())
             self.robot_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
 
+    def update_raw_platform_angle(self):
+            trans_ready = self._tf_buffer.can_transform('world', 'platform_link', rclpy.time.Time())
+            if trans_ready:
+                trans = self._tf_buffer.lookup_transform('world', 'platform_link', rclpy.time.Time())
+                self.raw_platform_angle = trans.transform.rotation
+
     ###
     ### BRICK FUNCTIONS
     ###
@@ -273,7 +285,7 @@ class Arena(Node):
         tf.transform.translation.x = change.x
         tf.transform.translation.y = change.y
         tf.transform.translation.z = change.z
-        tf.transform.rotation = angle_axis_to_quaternion(change.theta, [0.0, 0.0, -1.0])
+        tf.transform.rotation = angle_axis_to_quaternion(change.theta, [0.0, 1.0, 0.0])
         return tf
     
     def is_near_xy(self, start_pos, end_pos, rad):

@@ -165,7 +165,7 @@ class Catcher(Node):
                 tilt_msg.angle = 0.5
                 # If the brick and platform are a platform_radius distance away from each other,
                 # center the platform and set state to GROUNDED
-                if self.distance_helper3D(self.platform_pos, self.brick_pos) >= (self.platform_radius + 0.1):
+                if self.distance_helper3D(self.platform_pos, self.brick_pos) >= (self.platform_radius + 0.75):
                     tilt_msg.angle = 0.0
                     self.state = state.GROUNDED
         
@@ -251,7 +251,6 @@ class Catcher(Node):
         discriminant = start_vel**2 + 2 * accel * dist_to_platform
         # Ensure the discriminant is non-negative
         if discriminant < 0:
-            self.get_logger().info('Unable to extrapolate brick velocity')
             return False
         # Solve for time using quadratic formula
         r1 = (-start_vel + math.sqrt(discriminant))/accel

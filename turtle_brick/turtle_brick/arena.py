@@ -115,12 +115,14 @@ class Arena(Node):
         # initialize brick variables
         self.brick_dim = [0.5, 0.3, 0.3] # x, y, z measurements
         self.brick_pos = Position3D(3.0, 3.0, 7.5, 0.0)
-        self.brick_vel = 0.0
+        self.brick_vel = 0.0 # velocity along the z-axis
+        self.brick_vel_x = 0.0
         # initialize turtle_robot/platform variables
         self.robot_pos = Position3D()
         self.platform_angle = 0.0
         self.raw_platform_angle = Quaternion()
         self.robot_tf_ready = False
+        self.platform_pos = Position3D()
         # initialize general node variables
         self.state = state.GROUNDED
         self.frequency = 250
@@ -135,12 +137,18 @@ class Arena(Node):
 
         # Update the robot position and platform angle in the arena
         self.update_robot_pos()
+        self.update_platform_pos()
         self.update_raw_platform_angle()
 
         # Declaring all the import variables/transforms/joint states
         world_brick_tf = TransformStamped()
 
-        # If the brick is in a FALLING state, adjust the tf
+        # If the brick is in a GROUNDED state, all brick velocities are equal zero
+        if self.state == state.GROUNDED:
+            self.brick_vel = 0.0
+            self.brick_vel_x = 0.0
+        
+        # If the brick is in a FALLING state, update it's new positions accordingly
         if self.state == state.FALLING:
             self.falling_brick()
             # If the brick reaches the ground, switch to a STOPPED state
@@ -157,7 +165,16 @@ class Arena(Node):
             # If the platform is not centered, change to SLIDING state
             if not self.raw_platform_angle == Quaternion():
                 self.brick_pos.theta = 0.5
+                self.platform_angle = 0.5
                 self.state = state.SLIDING
+
+        # If the brick is in a SLIDING state, update it's new positions accordingly
+        if self.state == state.SLIDING:
+            self.sliding_brick()
+            # If the brick and platform are a platform_radius distance away from each other,
+            # the brick is considered off the platform and switches to the GROUNDED state
+            if self.distance_helper3D(self.platform_pos, self.brick_pos) >= (self.platform_radius + 0.75):
+                self.state = state.GROUNDED
 
         # Create the transform for world -> brick
         world_brick_tf.header.stamp = self.time
@@ -226,6 +243,12 @@ class Arena(Node):
             if trans_ready:
                 trans = self._tf_buffer.lookup_transform('world', 'platform_link', rclpy.time.Time())
                 self.raw_platform_angle = trans.transform.rotation
+    
+    def update_platform_pos(self):
+        trans_ready = self._tf_buffer.can_transform('world', 'platform_link', rclpy.time.Time())
+        if trans_ready:
+            trans = self._tf_buffer.lookup_transform('world', 'platform_link', rclpy.time.Time())
+            self.platform_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
 
     ###
     ### BRICK FUNCTIONS
@@ -242,6 +265,21 @@ class Arena(Node):
         """
         self.brick_pos.x = self.robot_pos.x
         self.brick_pos.y = self.robot_pos.y
+
+    def sliding_brick(self):
+        """ Updates the brick's position that reflects the sliding brick according to platform's angle,
+            updating the brick's velocity in the process
+        """
+        # Find the z component
+        z_accel = self.gravity_accel * math.sin(self.platform_angle)**2
+        displacement_z = self.find_displacement(self.brick_vel, z_accel, self.period)
+        self.brick_vel = self.find_vel(self.brick_vel, z_accel, self.period)
+        self.brick_pos.z -= displacement_z
+        # Find the x component
+        x_accel = self.gravity_accel * math.sin(self.platform_angle) * math.cos(self.platform_angle)
+        displacement_x = self.find_displacement(self.brick_vel_x, x_accel, self.period)
+        self.brick_vel_x = self.find_vel(self.brick_vel_x, x_accel, self.period)
+        self.brick_pos.x += displacement_x
 
     def is_on_ground(self):
         """ Returns true if the brick has landed on the ground
@@ -306,6 +344,11 @@ class Arena(Node):
         """ Returns the distance between two positions on the x & y coords
         """
         return math.sqrt((start_pos.x - end_pos.x)**2 + (start_pos.y - end_pos.y)**2)
+    
+    def distance_helper3D(self, start_pos, end_pos):
+        """ Returns the distance between two positions on the x & y coords
+        """
+        return math.sqrt((start_pos.x - end_pos.x)**2 + (start_pos.y - end_pos.y)**2 + (start_pos.z - end_pos.z)**2)
 
     ###
     ### MARKER FUNCTIONS

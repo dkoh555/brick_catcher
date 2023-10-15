@@ -256,7 +256,6 @@ class TurtleRobot(Node):
             # normalize the translation vector between current and goal Positions
             diff = [goal_pos.x - self.new_pos.x, goal_pos.y - self.new_pos.y]
             norm_diff = self.unit_vector_two(diff)
-            self.get_logger().info('unit_vector: %s' % norm_diff)
             # If the turtle is close enough to the goal, slow down the velocity
             if self.is_near(self.new_pos, goal_pos, 0.5):
                 vel *= 0.2

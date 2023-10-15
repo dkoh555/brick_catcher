@@ -1,9 +1,9 @@
 <launch>
     
-    <!-- WIP run the control node -->
-    <!-- <node name="turtle_robot" pkg="turtle_brick" exec="turtle_robot">
+    <!-- run the catcher/control node -->
+    <node name="catcher" pkg="turtle_brick" exec="catcher">
         <param from="$(find-pkg-share turtle_brick)/config/turtle.yaml" />
-    </node> -->
+    </node>
 
     <!-- run the arena node -->
     <node name="arena" pkg="turtle_brick" exec="arena">

@@ -10,9 +10,11 @@ This `turtle` robot will then use various ROS systems, including `tf`, `joint_st
 2. Use `ros2 service call /drop std_srvs/srv/Empty "{}"` to drop a brick.
 3. Here is a video of the turtle when the brick is within catching range:
 
+[me495_hw2_vid1.webm](https://github.com/ME495-EmbeddedSystems/homework2-dkoh555/assets/107823507/394f8978-27c7-4816-bce1-ef924f8fd4a3)
 
 4. Here is a video of the turtle when the brick cannot be caught:
 
+[me495_hw2_vid2.webm](https://github.com/ME495-EmbeddedSystems/homework2-dkoh555/assets/107823507/23038351-c242-49a5-b93d-ffcfef7f0f26)
 
 
 ## Extra Commands

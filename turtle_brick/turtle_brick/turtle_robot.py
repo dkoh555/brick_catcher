@@ -93,6 +93,20 @@ class TurtleRobot(Node):
         self.sub_pos # Used to prevent warnings
 
         ###
+        ### STATIC TRANSFORM BROADCASTER
+        ###
+        # Static broadcasters publish on /tf_static. We will only need to publish this once
+        self.static_broadcaster = StaticTransformBroadcaster(self)
+        # Create the transform for world -> odom
+        world_odom_tf = TransformStamped()
+        world_odom_tf.header.stamp = self.get_clock().now().to_msg()
+        world_odom_tf.header.frame_id = "world"
+        world_odom_tf.child_frame_id = "odom"
+        temp_tf = self.new_transform(Position(), self.odom)
+        world_odom_tf = self.update_tf(world_odom_tf, temp_tf)
+        self.static_broadcaster.sendTransform(world_odom_tf)
+
+        ###
         ### BROADCASTER
         ###
         # create the broadcaster for transforms
@@ -112,8 +126,7 @@ class TurtleRobot(Node):
         # State of the node
         self.state = state.STOPPED
         # Position and TF
-        self.init_odom = False # whether odom Position has been initialized
-        self.odom = Position() # starting position/odom/spawn location
+        self.odom = Position(5.544444561004639, 5.544444561004639, 0.0) # starting position/odom/spawn location
         self.old_pos = Position()
         self.new_pos = Position()
         self.transform = Position()
@@ -129,7 +142,6 @@ class TurtleRobot(Node):
 
         # Declaring all the import variables/transforms/joint states
         move_msg = Twist()
-        world_odom_tf = TransformStamped()
         odom_base_tf = TransformStamped()
         joint_state = JointState()
 
@@ -141,14 +153,7 @@ class TurtleRobot(Node):
             if self.wheel_angle <= -math.pi:
                 self.wheel_angle = math.pi
         
-        # Create the transform for world -> odom and odom -> base_link
-        world_odom_tf.header.stamp = time
-        world_odom_tf.header.frame_id = "world"
-        world_odom_tf.child_frame_id = "odom"
-        temp_tf = self.new_transform(Position(), self.odom)
-        world_odom_tf = self.update_tf(world_odom_tf, temp_tf)
-        self.broadcaster.sendTransform(world_odom_tf)
-
+        # Create the transform for odom -> base_link
         odom_base_tf.header.stamp = time
         odom_base_tf.header.frame_id = "odom"
         odom_base_tf.child_frame_id = "base_link"
@@ -207,14 +212,9 @@ class TurtleRobot(Node):
                 msg (turtlesim/Pose): A message that contains a Pose message, containing the
                     current x, y, theta, and linear and angular velocities of the turtle
         """
-        if not self.init_odom:
-            self.odom = Position(msg.x, msg.y, msg.theta)
-            self.old_pos = Position(msg.x, msg.y, msg.theta)
-            self.new_pos = Position(msg.x, msg.y, msg.theta)
-            self.init_odom = True
-        elif self.init_odom:
-            self.old_pos = self.new_pos
-            self.new_pos = Position(msg.x, msg.y, msg.theta)
+        
+        self.old_pos = self.new_pos
+        self.new_pos = Position(msg.x, msg.y, msg.theta)
 
     ###
     ### NAVIGATION FUNCTIONS

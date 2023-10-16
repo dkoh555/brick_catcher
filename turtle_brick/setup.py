@@ -25,7 +25,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'test_node = turtle_brick.test_node:main',
             'turtle_robot = turtle_brick.turtle_robot:turtle_robot_entry',
             'arena = turtle_brick.arena:arena_entry',
             'catcher = turtle_brick.catcher:catcher_entry',

@@ -76,7 +76,7 @@ class Arena(Node):
         ###
         # Create publisher for the Arena markers
         markerQoS = QoSProfile(depth=10, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
-        self.pub_marker = self.create_publisher(MarkerArray, "visualization_marker_", markerQoS)
+        self.pub_marker = self.create_publisher(MarkerArray, "visualization_marker_array_", markerQoS)
 
         ###
         ### SERVICES

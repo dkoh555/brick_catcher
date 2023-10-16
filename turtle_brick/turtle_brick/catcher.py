@@ -79,6 +79,9 @@ class Catcher(Node):
         self.pub_goal = self.create_publisher(PoseStamped, 'goal_pose', 10)
         # Create publisher for tilt messages
         self.pub_tilt = self.create_publisher(Tilt, 'tilt', 10)
+        # Create publisher for the text markers
+        markerQoS = QoSProfile(depth=10, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+        self.pub_marker = self.create_publisher(Marker, "visualization_marker_", markerQoS)
 
         ###
         ### SERVICES
@@ -105,6 +108,7 @@ class Catcher(Node):
         # initialize brick variables
         self.brick_pos = Position3D(3.0, 3.0, 7.5, 0.0)
         self.brick_vel = 0.0
+        self.time_start_falling = None 
         # initialize turtle_robot/platform variables
         self.robot_pos = Position3D()
         self.odom_pos = Position3D()
@@ -132,6 +136,7 @@ class Catcher(Node):
         # If the brick is hovering, check if it's reachable
         if self.state == state.HOVERING:
             self.reachable = self.can_reach()
+            self.time_start_falling = self.get_clock().now().to_msg().sec
         # If the brick is falling...
         if self.state == state.FALLING:
             # And if the robot can reach it in time, move to catch it; otherwise, publish marker saying it cannot
@@ -147,7 +152,11 @@ class Catcher(Node):
                 if self.is_caught():
                     self.state = state.CAUGHT
             else:
-                self.get_logger().error('UNREACHABLE')
+                if (self.get_clock().now().to_msg().sec - self.time_start_falling <= 3):
+                    self.pub_unreachable()
+                else:
+                    self.remove_unreachable()
+
         # If the brick is caught...
         if self.state == state.CAUGHT:
             # And f not near the odom point, move towards it;
@@ -269,11 +278,32 @@ class Catcher(Node):
         # If the brick is on the platform, return True
         return self.is_near_xy(self.robot_pos, self.brick_pos, self.platform_radius) and (self.brick_pos.z <= self.platform_height)
 
-    def move_to_center(self):
-        pass
+    def pub_unreachable(self):
+        msg = Marker()
+        msg.header.frame_id = "brick"
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.id = 6
+        msg.type = Marker.TEXT_VIEW_FACING
+        msg.action = Marker.ADD
+        msg.scale.x = 1.0
+        msg.scale.y = 1.0
+        msg.scale.z = 1.5
+        msg.pose.position.z = 1.0
+        msg.color.r = 1.0
+        msg.color.g = 0.0
+        msg.color.b = 1.0
+        msg.color.a = 1.0
+        msg.text = "Unreachable"
+        self.pub_marker.publish(msg)
 
-    def signal_dropoff(self):
-        pass
+    def remove_unreachable(self):
+        msg = Marker()
+        msg.header.frame_id = "brick"
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.id = 6
+        msg.action = Marker.DELETE
+        self.pub_marker.publish(msg)
+
 
     ###
     ### HELPER FUNCTIONS

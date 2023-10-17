@@ -84,14 +84,6 @@ class Catcher(Node):
         self.pub_marker = self.create_publisher(Marker, "visualization_marker_", markerQoS)
 
         ###
-        ### SERVICES
-        ###
-        # Create service that triggers the brick to drop towards the ground
-        self.srv_drop = self.create_service(Empty, 'drop', self.drop_callback)
-        # Create service that detects when the brick is moved to a position in the arena
-        self.srv_place = self.create_service(Place, 'place', self.place_callback)
-
-        ###
         ### LISTENER
         ###
         self._tf_buffer = Buffer()
@@ -107,6 +99,7 @@ class Catcher(Node):
         """
         # initialize brick variables
         self.brick_pos = Position3D(3.0, 3.0, 7.5, 0.0)
+        self.old_brick_pos = Position3D()
         self.brick_vel = 0.0
         self.time_start_falling = None 
         # initialize turtle_robot/platform variables
@@ -133,9 +126,15 @@ class Catcher(Node):
         tilt_msg = Tilt()
         tilt_msg.angle = 0.0
 
+        # If at any point, the brick's new position is larger than the old position then it has been placed there/reset
+        if self.is_brick_reset():
+            self.state = state.HOVERING
         # If the brick is hovering, check if it's reachable
         if self.state == state.HOVERING:
             self.reachable = self.can_reach()
+            # If the brick's new position is lower than the old position, then it is falling
+            if self.is_brick_falling():
+                self.state = state.FALLING
             self.time_start_falling = self.get_clock().now().to_msg().sec
         # If the brick is falling...
         if self.state == state.FALLING:
@@ -231,10 +230,11 @@ class Catcher(Node):
             self.robot_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
 
     def update_brick_pos(self):
+        self.old_brick_pos = self.brick_pos # Update the old brick position
         trans_ready = self._tf_buffer.can_transform('world', 'brick', rclpy.time.Time())
         if trans_ready:
             trans = self._tf_buffer.lookup_transform('world', 'brick', rclpy.time.Time())
-            self.brick_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
+            self.brick_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0) # The new brick position
 
     def update_odom_pos(self):
         trans_ready = self._tf_buffer.can_transform('world', 'odom', rclpy.time.Time())
@@ -251,6 +251,18 @@ class Catcher(Node):
     ###
     ### CATCHING FUNCTIONS
     ###
+    def is_brick_falling(self):
+        if self.brick_pos.z < self.old_brick_pos.z and self.brick_pos.x == self.old_brick_pos.x and self.brick_pos.y and self.old_brick_pos.y:
+            return True
+        else:
+            return False
+
+    def is_brick_reset(self):
+        if self.brick_pos.z > self.old_brick_pos.z:
+            return True
+        else:
+            return False
+    
     def can_reach(self):
         # Calculating the time for the brick to hit the platform
         dist_to_platform = self.brick_pos.z - self.platform_height

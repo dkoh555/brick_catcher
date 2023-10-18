@@ -1,3 +1,37 @@
+"""
+Visualizes a turtle robot on rviz that mirrors the position and movement of the turtle in turtlesim.
+Concurrently, based on the target positions received, publishes Twist commands to control the
+turtlesim and direct it towards said target positions.
+
+PUBLISHERS:
+    joint_states (sensor_msgs/JointState) - Contains the different joint state values for the turtle robot in rviz
+    turtle1/cmd_vel (geometry_msgs/Twist) - Contains velocity commands to direct turtlesim towards its current goal
+    odom (nav_msgs/Odometry) - Contains velocity commands that mirror the ones being published on cmd_vel
+
+SUBSCRIBERS:
+    goal_pose (geometry_msgs/PoseStamped) - Receives the position that the turtlesim is to head towards
+    tilt (turtle_brick_interfaces/Tilt) - Receives the angle to update the joint state of the turtle robot's platform tilt angle
+    turtle1/pose (turtlesim/Pose) - Receives the current position of the turtlesim
+
+BROADCASTERS:
+    world_odom - The static transform from the world to the odom frame
+    odom_base_link - The transform from the odom to the base_link frame
+
+LISTENER:
+    world_base_link - The transform from the world to the base_link frame of the robot
+    world_platform_link - The transform from the world to the platform_link frame of the robot
+
+PARAMETERS:
+    platform_height (double) - The height between the turtle robot's platform and the ground
+    wheel_radius (double) - The radius of the turtle robot's wheel
+    max_velocity (double) - The maximum velocity of the turtle robot
+    gravity_accel (double) - The acceleration caused by gravity
+    platform_radius (double) - The platform radius of the turtle robot
+    frequency (double) - The frequency in which the timer_callback is run
+    tolerance (double) - The proximity in which the turtle needs to be to a waypoint to classify as arrived
+
+"""
+
 import rclpy
 from rclpy.node import Node
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
@@ -42,28 +76,26 @@ class TurtleRobot(Node):
         super().__init__('turtle_robot')
         # Initialize variables
         self.init_var()
-        # This node will use Reentrant Callback Groups for nested services
-        self.cbgroup = ReentrantCallbackGroup()
 
         ###
         ### PARAMETERS
         ###
         # Declare and get the following parameters: platform_height, wheel_radius, max_velocity, gravity_accel
         self.declare_parameter("platform_height", 2.0,
-                               ParameterDescriptor(description="The height between the turtle platform and the ground"))
+                               ParameterDescriptor(description="The height between the turtle robot's platform and the ground"))
         self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
         self.declare_parameter("wheel_radius", 0.2,
-                               ParameterDescriptor(description="The proximity in which the turtle needs to be to a waypoint to classify as arrived"))
+                               ParameterDescriptor(description="The radius of the turtle robot's wheel"))
         self.wheel_radius = self.get_parameter("wheel_radius").get_parameter_value().double_value
         self.declare_parameter("max_velocity", 5.0,
-                               ParameterDescriptor(description="The velocity of the turtle"))
+                               ParameterDescriptor(description="The maximum velocity of the turtle robot"))
         self.max_velocity = self.get_parameter("max_velocity").get_parameter_value().double_value
         self.declare_parameter("gravity_accel", 9.81,
                                ParameterDescriptor(description="The acceleration caused by gravity"))
         self.gravity_accel = self.get_parameter("gravity_accel").get_parameter_value().double_value
         # Declare and get extra parameters
         self.declare_parameter("frequency", 100.0,
-                               ParameterDescriptor(description="The frequency in which the msg is published"))
+                               ParameterDescriptor(description="The frequency in which the timer_callback is run"))
         self.frequency = self.get_parameter("frequency").get_parameter_value().double_value
         self.declare_parameter("tolerance", 0.1,
                                ParameterDescriptor(description="The proximity in which the turtle needs to be to a waypoint to classify as arrived"))
@@ -74,10 +106,10 @@ class TurtleRobot(Node):
         ###
         # Create publisher for joint_state
         self.pub_jointstate = self.create_publisher(JointState, 'joint_states', 10)
-        # Create publisher for publishing odometry messages
-        self.pub_odom = self.create_publisher(Odometry, 'odom', 10)
         # Create publisher to move the turtle
         self.pub_cmdvel = self.create_publisher(Twist, 'turtle1/cmd_vel', 10)
+        # Create publisher for publishing odometry messages
+        self.pub_odom = self.create_publisher(Odometry, 'odom', 10)
 
         ###
         ### SUBSCRIBERS
@@ -118,7 +150,7 @@ class TurtleRobot(Node):
         # Adjusted frequency for whatever the frequency param value is
         timer_period = 1.0/self.frequency  # seconds
         # create timer and timer callback
-        self.timer = self.create_timer(timer_period, self.timer_callback, callback_group=self.cbgroup)
+        self.timer = self.create_timer(timer_period, self.timer_callback)
 
     def init_var(self):
         """ Initialize all of the turtle_robot node's variables
@@ -137,6 +169,12 @@ class TurtleRobot(Node):
         self.target_pos = Position()
 
     def timer_callback(self):
+        """ Timer callback for the turtle_robot node.
+
+            Constantly updates the position of the turtle robot in rviz with the posiiton of the
+            turtle in turtlesim, additionally controls turtlesim based on node's state and any
+            new goal positions it was provided
+        """
         # Initialize the current time
         time = self.get_clock().now().to_msg()
 
@@ -173,6 +211,11 @@ class TurtleRobot(Node):
         # Publish the movement command for the turtlesim
         self.pub_cmdvel.publish(move_msg)
 
+        # Publish the odometry of the turtle robot as requested in the HW instructions
+        odom_msg = Odometry()
+        odom_msg.twist.twist = move_msg
+        self.pub_odom.publish(odom_msg)
+
     
     ###
     ### SUBSCRIBER CALLBACKS
@@ -194,7 +237,7 @@ class TurtleRobot(Node):
     def sub_tilt_callback(self, msg):
         """ Callback function for the tilt topic.
 
-            Receives a tilt angle for the platform
+            Receives a tilt angle for the platform to tilt at
             
             Args:
                 msg (turtle_brick_interfaces/Tilt): A message that contains a float for the angle
@@ -205,8 +248,6 @@ class TurtleRobot(Node):
         """ Callback function for the turtle1/pose topic.
 
             Receives the turtlesim's current position and updates the turtle robot's position.
-            If the node has just been initialized (and the turtle has just spawned),
-            take note of the starting position.
             
             Args:
                 msg (turtlesim/Pose): A message that contains a Pose message, containing the
@@ -224,7 +265,8 @@ class TurtleRobot(Node):
 
             Args:
                 input_msg (geometry_msgs/Twist): The initial movement command of the turtle, corresponding with linear x & y velocity
-                vel (float): The desired velocity of the turtle
+                vel_x (float): The desired x-axis velocity of the turtle
+                vel_y (float): The desired y-axis velocity of the turtle
             
             Returns:
                 geometry_msgs/Twist: The new movement command for the turtle to move towards the target waypoint

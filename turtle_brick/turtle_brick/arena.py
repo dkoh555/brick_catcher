@@ -1,3 +1,35 @@
+"""
+Broadcasts the TFs of the brick to appropriately simulate the simple physics of a brick
+falling, landing, and sliding.
+Additionally, takes in positions to place the brick above the arena and service requests on when
+to drop said brick.
+
+PUBLISHERS:
+    visualization_marker_array_ (MarkerArray) - Contains markers that visualize the walls and brick objects in rviz
+
+SERVICES:
+    place (turtle_brick_interfaces/Place) - Receives the position for where to place the brick in the arena to be dropped
+    drop (std_srvs/Empty) - Receives the signal to drop the brick
+
+CLIENTS:
+    reset (std_srvs/Empty) - To reset the turtlesim
+    turtle1/teleport_absolute (turtlesim/TeleportAbsolute) - To teleport the turtle
+    turtle1/set_pen (turtlesim/SetPen) - To set the color and width of the pen, as well toggle it on or off
+
+BROADCASTERS:
+    world_brick - The transform from the world to the brick frame
+
+LISTENER:
+    world_base_link - The transform from the world to the base_link frame of the robot
+    world_platform_link - The transform from the world to the platform_link frame of the robot
+
+PARAMETERS:
+    gravity_accel (double) - The acceleration caused by gravity
+    platform_height (double) - The height between the turtle platform and the ground
+    platform_radius (double) - The platform radius of the turtle robot
+
+"""
+
 import rclpy
 from rclpy.node import Node
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
@@ -25,8 +57,8 @@ from tf2_ros.transform_listener import TransformListener
 
 class state(Enum):
     """ Current state of the system (arena node).
-        Determines what movement commands are published to the turtle robot,
-        whether it is MOVING, STOPPED, SLIDING (off the platform)
+        Determines the current movement state of the brick in the environment,
+        whether it is FALLING, GROUNDED, PLATFORMED, or SLIDING
     """
     FALLING = 0
     GROUNDED = 1
@@ -132,6 +164,12 @@ class Arena(Node):
     ### TIMER CALLBACK
     ### 
     def timer_callback(self):
+        """ Timer callback for the arena node.
+
+            Depending on the transforms and positions of the robot, platform, and brick,
+            modify the arena's state and the resulting transform/new position of brick
+            with each passing unit of time
+        """
         # Initialize the current time
         self.time = self.get_clock().now().to_msg()
 
@@ -194,12 +232,12 @@ class Arena(Node):
     def place_callback(self, request, response):
         """ Callback function for the place service.
 
-            When provided with a Place request, the brick will relocate in the requested 3D coordinates
+            When provided with a turtle_brick_interfaces/Place message,
+            the arena node will switch to a GROUNDED state and update the
+            brick's position accordingly
             
             Args:
-                x (float64): The desired x coord of the brick
-                y (float64): The desired y coord of the brick
-                z (float64): The desired z coord of the brick
+                request (Place): A message that contains the desired x, y, and z coordinates of the brick
 
                 response (Empty): The response object
 
@@ -214,7 +252,8 @@ class Arena(Node):
         """ Callback function for the drop service.
 
             When provided with a std_srvs/Empty message,
-            the node will switch from STOPPED to FALLING states
+            the node will switch conditionally switch from
+            the GROUNDED to the FALLING state
             
             Args:
                 request (Empty): A message that contains nothing
@@ -233,18 +272,24 @@ class Arena(Node):
     ### TF LISTENER
     ###
     def update_robot_pos(self):
+        """ Checks the appropriate transform and updates the robot's current base_link position
+        """
         trans_ready = self._tf_buffer.can_transform('world', 'base_link', rclpy.time.Time())
         if trans_ready:
             trans = self._tf_buffer.lookup_transform('world', 'base_link', rclpy.time.Time())
             self.robot_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
 
     def update_raw_platform_angle(self):
-            trans_ready = self._tf_buffer.can_transform('world', 'platform_link', rclpy.time.Time())
-            if trans_ready:
-                trans = self._tf_buffer.lookup_transform('world', 'platform_link', rclpy.time.Time())
-                self.raw_platform_angle = trans.transform.rotation
+        """ Checks the appropriate transform and updates the robot's current platform angle
+        """
+        trans_ready = self._tf_buffer.can_transform('world', 'platform_link', rclpy.time.Time())
+        if trans_ready:
+            trans = self._tf_buffer.lookup_transform('world', 'platform_link', rclpy.time.Time())
+            self.raw_platform_angle = trans.transform.rotation
     
     def update_platform_pos(self):
+        """ Checks the appropriate transform and updates the robot's current platform position
+        """
         trans_ready = self._tf_buffer.can_transform('world', 'platform_link', rclpy.time.Time())
         if trans_ready:
             trans = self._tf_buffer.lookup_transform('world', 'platform_link', rclpy.time.Time())
@@ -261,7 +306,8 @@ class Arena(Node):
         self.brick_pos.z -= displacement
 
     def following_brick(self):
-        """ Updates the brick's position that reflects the change in posiiton of the platform
+        """ Updates the brick's position that mirrors the change in posiiton of the platform,
+            hence following the platform
         """
         self.brick_pos.x = self.robot_pos.x
         self.brick_pos.y = self.robot_pos.y
@@ -297,17 +343,40 @@ class Arena(Node):
     ### HELPER FUNCTIONS
     ###
     def find_vel(self, old_vel, acceleration, time):
-        """ Returns the new velocity after taking into account old velocity, acceleration, and time difference
+        """ Returns the new velocity after taking into account old velocity, acceleration, and time period
+
+            Args:
+                old_vel (float): The current/old velocity
+                acceleration (float): The current acceleration
+                time (float): The size of the time period that has passed during this calculation
+            
+            Returns:
+                float: The new velocity
         """
         return old_vel + acceleration * time
     
     def find_displacement(self, old_vel, acceleration, time):
-        """ Returns the displacement over a time period after taking into account old velocity, acceleration, and the period itself
+        """ Returns the displacement over a time period after taking into account old velocity, acceleration, and time period
+
+            Args:
+                old_vel (float): The current/old velocity
+                acceleration (float): The current acceleration
+                time (float): The size of the time period that has passed during this calculation
+            
+            Returns:
+                float: The new velocity
         """
         return old_vel * time + 0.5 * acceleration * time**2
 
     def new_transform(self, new, old):
         """ Returns a Position3D that reflects the transform between old and new positions
+
+            Args:
+                new (Position3D): The new position
+                old (Position3D): The old position
+            
+            Returns:
+                Position3D: The resulting change in posiiton
         """
         tf = Position3D()
         tf.x = new.x - old.x
@@ -318,6 +387,13 @@ class Arena(Node):
     
     def update_tf(self, input_tf, change):
         """ Returns an updated TransformStamped that reflects the transform/change in position
+
+        Args:
+                input_tf (TransformStamped): The starting transform
+                change (Position3D): The change in position
+            
+            Returns:
+                TransformStamped: The appropriately modified transform
         """
         tf = input_tf
         tf.transform.translation.x = change.x
@@ -341,12 +417,12 @@ class Arena(Node):
         return dist <= rad
     
     def distance_helper(self, start_pos, end_pos):
-        """ Returns the distance between two positions on the x & y coords
+        """ Returns the distance between two positions (Posiiton3D) on the x & y coords
         """
         return math.sqrt((start_pos.x - end_pos.x)**2 + (start_pos.y - end_pos.y)**2)
     
     def distance_helper3D(self, start_pos, end_pos):
-        """ Returns the distance between two positions on the x & y coords
+        """ Returns the distance between two positions (Posiiton3D) on the x, y, and z coords
         """
         return math.sqrt((start_pos.x - end_pos.x)**2 + (start_pos.y - end_pos.y)**2 + (start_pos.z - end_pos.z)**2)
 
@@ -354,6 +430,8 @@ class Arena(Node):
     ### MARKER FUNCTIONS
     ###
     def brick_marker(self):
+        """ Creates the marker representing the brick and adds it to the marker array
+        """
         self.brick = Marker()
         self.brick.header.frame_id = "brick"
         self.brick.header.stamp = self.get_clock().now().to_msg()
@@ -379,6 +457,8 @@ class Arena(Node):
         self.marker_array.markers[4] = self.brick
 
     def wall_markers(self):
+        """ Creates a marker array, and then a marker for each of the walls and adds them to said marker array
+        """
         # Initialize the Marker Array
         self.marker_array = MarkerArray()
         

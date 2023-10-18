@@ -4,9 +4,9 @@ as well as determines if a brick is even reachable from the robot's current posi
 It also guides the robot to take a caught brick to the center of the arena and tilt the brick off.
 
 PUBLISHERS:
-    goal_pose (PoseStamped) - Contains the position for the turtle robot to head towards
-    tilt (Tilt) - Contains the angle of the platform to tilt at
-    visualization_marker_ (Marker) - Contains marker of the text that indicates a brick is unreachable
+    goal_pose (geometry_msgs/PoseStamped) - Contains the position for the turtle robot to head towards
+    tilt (turtle_brick_interfaces/Tilt) - Contains the angle of the platform to tilt at
+    visualization_marker_ (visualization_msgs/Marker) - Contains marker of the text that indicates a brick is unreachable
 
 LISTENER:
     world_base_link - The transform from the world to the base_link frame of the robot

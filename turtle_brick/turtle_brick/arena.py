@@ -1,20 +1,14 @@
 """
 Broadcasts the TFs of the brick to appropriately simulate the simple physics of a brick
-falling, landing, and sliding.
-Additionally, takes in positions to place the brick above the arena and service requests on when
-to drop said brick.
+falling, landing, and sliding. Additionally, takes in positions to place the brick above
+the arena and service requests on when to drop said brick.
 
 PUBLISHERS:
-    visualization_marker_array_ (MarkerArray) - Contains markers that visualize the walls and brick objects in rviz
+    visualization_marker_array_ (visualization_msgs/MarkerArray) - Contains markers that visualize the walls and brick objects in rviz
 
 SERVICES:
     place (turtle_brick_interfaces/Place) - Receives the position for where to place the brick in the arena to be dropped
     drop (std_srvs/Empty) - Receives the signal to drop the brick
-
-CLIENTS:
-    reset (std_srvs/Empty) - To reset the turtlesim
-    turtle1/teleport_absolute (turtlesim/TeleportAbsolute) - To teleport the turtle
-    turtle1/set_pen (turtlesim/SetPen) - To set the color and width of the pen, as well toggle it on or off
 
 BROADCASTERS:
     world_brick - The transform from the world to the brick frame
@@ -25,7 +19,7 @@ LISTENER:
 
 PARAMETERS:
     gravity_accel (double) - The acceleration caused by gravity
-    platform_height (double) - The height between the turtle platform and the ground
+    platform_height (double) - The height between the turtle robot's platform and the ground
     platform_radius (double) - The platform radius of the turtle robot
 
 """
@@ -96,7 +90,7 @@ class Arena(Node):
                                ParameterDescriptor(description="The acceleration caused by gravity"))
         self.gravity_accel = self.get_parameter("gravity_accel").get_parameter_value().double_value
         self.declare_parameter("platform_height", 2.0,
-                               ParameterDescriptor(description="The height between the turtle platform and the ground"))
+                               ParameterDescriptor(description="The height between the turtle robot's platform and the ground"))
         self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
         # Declare and get extra parameters
         self.declare_parameter("platform_radius", 0.5,

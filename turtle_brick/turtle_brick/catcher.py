@@ -181,46 +181,6 @@ class Catcher(Node):
         self.pub_tilt.publish(tilt_msg)
 
     ###
-    ### SERVICE CALLBACKS
-    ###
-    def drop_callback(self, request, response):
-        """ Callback function for the drop service.
-
-            When provided with a std_srvs/Empty message,
-            the node will switch from HOVERING to FALLING states
-            
-            Args:
-                request (Empty): A message that contains nothing
-
-                response (Empty): The response object
-
-            Returns:
-                Empty: Contains nothing
-        """
-        # If brick is HOVERING and not on the ground, it will begin to fall
-        if self.state == state.HOVERING:
-            self.state = state.FALLING
-        return response
-        
-    def place_callback(self, request, response):
-        """ Callback function for the place service.
-
-            When provided with a Place request, the brick will relocate in the requested 3D coordinates
-            
-            Args:
-                x (float64): The desired x coord of the brick
-                y (float64): The desired y coord of the brick
-                z (float64): The desired z coord of the brick
-
-                response (Empty): The response object
-
-            Returns:
-                Empty: Contains nothing
-        """
-        self.state = state.HOVERING
-        return response
-
-    ###
     ### TF LISTENER
     ###
     def update_robot_pos(self):

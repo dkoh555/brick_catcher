@@ -410,15 +410,8 @@ class TurtleRobot(Node):
         Returns:
             Bool: States whether the two points are near each other is True/False
         """
-        dist = self.distance_helper(start_pos, end_pos)
+        dist = distance_helper(start_pos, end_pos)
         return dist <= rad
-
-    def distance_helper(self, start_pos, end_pos):
-        """Returns the distance between two positions on the x & y coords
-        """
-        return math.sqrt(
-            (start_pos.x - end_pos.x) ** 2 + (start_pos.y - end_pos.y) ** 2
-        )
 
     def unit_vector_two(self, input_v):
         """Converts a two element vector (array) to a unit vector (array) and returns it.
@@ -453,3 +446,11 @@ def turtle_robot_entry(args=None):
     node = TurtleRobot()
     rclpy.spin(node)
     rclpy.shutdown()
+
+
+def distance_helper(start_pos, end_pos):
+    """Returns the distance between two positions on the x & y coords
+    """
+    return math.sqrt(
+        (start_pos.x - end_pos.x) ** 2 + (start_pos.y - end_pos.y) ** 2
+    )

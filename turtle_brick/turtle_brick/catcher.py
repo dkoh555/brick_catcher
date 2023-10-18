@@ -1,3 +1,27 @@
+"""
+Directs the turtle robot on when and where to go to catch a dropping brick,
+as well as determines if a brick is even reachable from the robot's current position.
+It also guides the robot to take a caught brick to the center of the arena and tilt the brick off.
+
+PUBLISHERS:
+    goal_pose (PoseStamped) - Contains the position for the turtle robot to head towards
+    tilt (Tilt) - Contains the angle of the platform to tilt at
+    visualization_marker_ (Marker) - Contains marker of the text that indicates a brick is unreachable
+
+LISTENER:
+    world_base_link - The transform from the world to the base_link frame of the robot
+    world_brick - The transform from the world to the brick frame of the robot
+    world_odom - The transform from the world to the odom frame of the robot
+    world_platform_link - The transform from the world to the platform_link frame of the robot
+
+PARAMETERS:
+    platform_height (double) - The height between the turtle robot's platform and the ground
+    max_velocity (double) - The maximum velocity of the turtle robot
+    gravity_accel (double) - The acceleration caused by gravity
+    platform_radius (double) - The platform radius of the turtle robot
+
+"""
+
 import rclpy
 from rclpy.node import Node
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
@@ -24,9 +48,10 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
 class state(Enum):
-    """ Current state of the system (arena node).
-        Determines what movement commands are published to the turtle robot,
-        whether it is MOVING, HOVERING, SLIDING (off the platform)
+    """ Current state of the system (catcher node).
+        Determines the behaviour to control the turtle robot based on
+        whether it senses the brick to be FALLING, HOVERING, CAUGHT, or
+        GROUNDED
     """
     FALLING = 0
     HOVERING = 1
@@ -45,8 +70,9 @@ class Position3D:
         self.theta = theta
 
 class Catcher(Node):
-    """ Node for simulating the environment in rviz,
-        containing the walls of the arena and the brick with its physics
+    """ Node for controlling the turtle robot node,
+        making sure it catches reachable bricks and drops
+        them off in the center of the arena
     """
     def __init__(self):
         # Initialize the node
@@ -62,7 +88,7 @@ class Catcher(Node):
                                ParameterDescriptor(description="The height between the turtle platform and the ground"))
         self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
         self.declare_parameter("max_velocity", 5.0,
-                               ParameterDescriptor(description="The velocity of the turtle"))
+                               ParameterDescriptor(description="The maximum velocity of the turtle robot"))
         self.max_velocity = self.get_parameter("max_velocity").get_parameter_value().double_value
         self.declare_parameter("gravity_accel", 9.81,
                                ParameterDescriptor(description="The acceleration caused by gravity"))
@@ -95,7 +121,7 @@ class Catcher(Node):
         self.timer = self.create_timer(self.period, self.timer_callback)
 
     def init_var(self):
-        """ Initialize all of the arena node's variables
+        """ Initialize all of the catcher node's variables
         """
         # initialize brick variables
         self.brick_pos = Position3D(3.0, 3.0, 7.5, 0.0)
@@ -116,6 +142,12 @@ class Catcher(Node):
     ### TIMER CALLBACK
     ### 
     def timer_callback(self):
+        """ Timer callback for the catcher node.
+
+            Depending on the transforms and positions of the robot, platform, and brick,
+            assesses the brick's current state of movement and directs the robot around
+            the arena accordingly
+        """
         # Update robot, brick, and odom positions
         self.update_robot_pos()
         self.update_brick_pos()
@@ -184,12 +216,16 @@ class Catcher(Node):
     ### TF LISTENER
     ###
     def update_robot_pos(self):
+        """ Checks the appropriate transform and updates the robot's current base_link position
+        """
         trans_ready = self._tf_buffer.can_transform('world', 'base_link', rclpy.time.Time())
         if trans_ready:
             trans = self._tf_buffer.lookup_transform('world', 'base_link', rclpy.time.Time())
             self.robot_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
 
     def update_brick_pos(self):
+        """ Checks the appropriate transform and updates the robot's current brick position
+        """
         self.old_brick_pos = self.brick_pos # Update the old brick position
         trans_ready = self._tf_buffer.can_transform('world', 'brick', rclpy.time.Time())
         if trans_ready:
@@ -197,12 +233,16 @@ class Catcher(Node):
             self.brick_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0) # The new brick position
 
     def update_odom_pos(self):
+        """ Checks the appropriate transform and updates the robot's current odom position
+        """
         trans_ready = self._tf_buffer.can_transform('world', 'odom', rclpy.time.Time())
         if trans_ready:
             trans = self._tf_buffer.lookup_transform('world', 'odom', rclpy.time.Time())
             self.odom_pos = Position3D(trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z, 0.0)
     
     def update_platform_pos(self):
+        """ Checks the appropriate transform and updates the robot's current platform_link position
+        """
         trans_ready = self._tf_buffer.can_transform('world', 'platform_link', rclpy.time.Time())
         if trans_ready:
             trans = self._tf_buffer.lookup_transform('world', 'platform_link', rclpy.time.Time())
@@ -212,18 +252,25 @@ class Catcher(Node):
     ### CATCHING FUNCTIONS
     ###
     def is_brick_falling(self):
+        """ Returns true if the brick is determined to be falling down towards the ground
+        """
         if self.brick_pos.z < self.old_brick_pos.z and self.brick_pos.x == self.old_brick_pos.x and self.brick_pos.y and self.old_brick_pos.y:
             return True
         else:
             return False
 
     def is_brick_reset(self):
+        """ Returns true if the brick is determined to have 'placed' somewhere in the arena
+        """
         if self.brick_pos.z > self.old_brick_pos.z:
             return True
         else:
             return False
     
     def can_reach(self):
+        """ Returns true if it is determined that the turtle robot will be able to reach the brick
+            in time to catch it
+        """
         # Calculating the time for the brick to hit the platform
         dist_to_platform = self.brick_pos.z - self.platform_height
         start_vel = 0.0
@@ -247,10 +294,14 @@ class Catcher(Node):
         return time_to_reach <= time_to_fall
     
     def is_caught(self):
+        """ Returns true if the brick is determined to have landed on the turtle robot's platform
+        """
         # If the brick is on the platform, return True
         return self.is_near_xy(self.robot_pos, self.brick_pos, self.platform_radius) and (self.brick_pos.z <= self.platform_height)
 
     def pub_unreachable(self):
+        """ Publishes a marker stating "Unreachable" above the brick as it falls
+        """
         msg = Marker()
         msg.header.frame_id = "brick"
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -269,6 +320,8 @@ class Catcher(Node):
         self.pub_marker.publish(msg)
 
     def remove_unreachable(self):
+        """ Removes the "Unreachable" marker from above the brick
+        """
         msg = Marker()
         msg.header.frame_id = "brick"
         msg.header.stamp = self.get_clock().now().to_msg()

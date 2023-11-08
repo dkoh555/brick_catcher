@@ -1,4 +1,4 @@
-# ME495 Embedded Systems Homework 2
+# ME495: Brick Catcher Robot
 Author: Damien Koh
 
 ## Repository Description

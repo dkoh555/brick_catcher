@@ -1,7 +1,7 @@
 # ME495 Embedded Systems Homework 2
 Author: Damien Koh
 
-## Package Description
+## Repository Description
 This package uses `turtlesim` to simulate a robot in ROS, which is visualized in rviz.
 This `turtle` robot will then use various ROS systems, including `tf`, `joint_states`, and `URDF`, to control and show itself catching a brick that drops from the sky.
 
